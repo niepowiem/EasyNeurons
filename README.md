@@ -18,7 +18,7 @@
 ### 📺 Watch the Tutorials
 I am building this library live on my YouTube channel. If you want to understand the "why" behind the code, join me there!
 
-👉 **[My YouTube Channel (English)](TBA)**
+👉 **My YouTube Channel** TBA
 
 ### 🛠 Quick Start
 ```python
@@ -49,7 +49,7 @@ print(layer1.output)
 ### 📺 Oglądaj Tutoriale
 Buduję tę bibliotekę na żywo na moim kanale YouTube. Jeśli chcesz zrozumieć „dlaczego” za kodem kryje się taka, a nie inna logika, zapraszam!
 
-👉 **[Mój kanał na Youtube (Polski)]([TU_WSTAW_LINK_DO_ANGIELSKIEGO_KANALU](https://www.youtube.com/watch?v=W-tN-7qrv0k&list=PLrqG80ltdj3tyIQyItlQT2qBqRyy0yUok))**
+👉 **Mój kanał na Youtube (Polski):** https://www.youtube.com/watch?v=W-tN-7qrv0k&list=PLrqG80ltdj3tyIQyItlQT2qBqRyy0yUok
 
 ### 🛠 Szybki Start
 ```python
