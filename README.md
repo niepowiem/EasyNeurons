@@ -33,9 +33,9 @@ inputs = np.array([[1, 2, 3]])
 layer1.forward(inputs)
 
 print(layer1.output)
+```
 
-
-<a name="polish-version"></a>
+<a name="polska-wersja"></a>
 ## 🇵🇱 Polska Wersja
 
 **EasyNeurons** to edukacyjna biblioteka Pythona stworzona, aby pokazać, jak sztuczna inteligencja działa na swoim najbardziej podstawowym poziomie. Zapomnij o skomplikowanych frameworkach z ukrytą logiką – tutaj budujemy wszystko od zera, używając wyłącznie **NumPy**.
