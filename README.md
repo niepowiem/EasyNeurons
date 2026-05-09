@@ -18,7 +18,7 @@
 ### 📺 Watch the Tutorials
 I am building this library live on my YouTube channel. If you want to understand the "why" behind the code, join me there!
 
-👉 **My YouTube Channel** TBA
+👉 **My YouTube Channel** https://www.youtube.com/watch?v=Q_qKSvRTkbk&list=PLLR0pt90FC8CKP2q20HJ1phJucyfmNGyH
 
 ### 🛠 Quick Start
 ```python
