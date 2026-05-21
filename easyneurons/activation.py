@@ -55,3 +55,7 @@ class Sigmoid:
         """
 
         self.output = 1 / (1 + np.exp(-inputs))
+
+class Binary:
+    def forward(self, inputs):
+        self.output = np.heaviside(inputs, 1)
