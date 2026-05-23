@@ -14,3 +14,9 @@ class CategoricalCrossEntropy:
     loss = -np.loss(confidences)
 
     self.output = np.mean(loss)
+
+class MeanSquaredError:
+  def forward(self, inputs, answers):
+    self.inputs = inputs
+    
+    self.output = np.mean((inputs - answers)**2, axis=-1)
