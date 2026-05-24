@@ -59,3 +59,8 @@ class Sigmoid:
 class Binary:
     def forward(self, inputs):
         self.output = np.heaviside(inputs, 1)
+
+class LeakyReLU:
+    def forward(self, input, alpha=0.01):
+        self.input = input 
+        self.output = np.maximum(alpha * x, x)
