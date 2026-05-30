@@ -16,7 +16,7 @@ class ReLU:
         :param inputs: Matrix of neuronal outputs
         :return:
         """
-
+        self.input = inputs
         self.output = np.maximum(0, inputs)
 
 class Softmax:
@@ -34,7 +34,7 @@ class Softmax:
         :param inputs: Matrix of neuronal output
         :return:
         """
-
+        self.input = inputs
         suma = np.exp(inputs - np.max(inputs, axis=1, keepdims=True))
         self.output = suma / np.sum(suma, axis=1, keepdims=True)
 
@@ -53,7 +53,7 @@ class Sigmoid:
         :param inputs: Matrix of neuronal output
         :return:
         """
-
+        self.input = inputs
         self.output = 1 / (1 + np.exp(-inputs))
 
 class Binary:
@@ -61,6 +61,11 @@ class Binary:
         self.output = np.heaviside(inputs, 1)
 
 class LeakyReLU:
-    def forward(self, input, alpha=0.01):
-        self.input = input 
+    def forward(self, inputs, alpha=0.01):
+        self.input = inputs 
         self.output = np.maximum(alpha * x, x)
+
+class Tanh:
+    def forward(self, inputs):
+        self.input = inputs
+        self.output = np.tanh(input)
