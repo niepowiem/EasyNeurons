@@ -98,16 +98,62 @@ class ReLU:
     def forward(self, inputs: np.ndarray) -> np.ndarray:
         """
         TBC
+        :param dvalues:
+        :return:
         """
         self.input = inputs
         self.output = np.maximum(0, inputs)
 
         return self.output
 
+    def backward(self, dvalues: np.ndarray) -> np.ndarray:
+        """
+        TBC
+        :param dvalues:
+        :return:
+        """
+
+        # Since we need to modify the original variable,
+        # let's make a copy of the values first
+        self.dvalues = dvalues.copy()
+
+        # Zero gradient where input values were negative
+        self.dvalues[self.inputs <= 0] = 0
+
+        return dvalues
+
+
 class LeakyReLU:
-    def forward(self, inputs, alpha=0.01):
+    def __init__(self, alpha=0.01):
+        self.alpha = alpha
+
+    def forward(self, inputs: np.ndarray) -> np.ndarray:
+        """
+        TBC
+        :param inputs: 
+        :return: 
+        """
+        
         self.input = inputs
-        self.output = np.maximum(alpha * inputs, inputs)
+        self.output = np.maximum(self.alpha * inputs, inputs)
+        
+        return self.output
+        
+    def backward(self, dvalues: np.ndarray) -> np.ndarray:
+        """
+        TBC
+        :param dvalues:
+        :return:
+        """
+
+        # Since we need to modify the original variable,
+        # let's make a copy of the values first
+        self.dvalues = dvalues.copy()
+
+        # Zero gradient where input values were negative
+        self.dvalues[self.inputs <= 0] = self.alpha
+
+        return dvalues
 
 class PReLU:
     def forward(self, inputs, alpha=0.01):
