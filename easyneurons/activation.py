@@ -2,99 +2,108 @@ import numpy as np
 
 class ReLU:
     """
-    Rectified Linear Unit (ReLU) activation function
-    ------------------------------------------------
+       Rectified Linear Unit (ReLU) activation function
+       ------------------------------------------------
 
-    This class introduces non-linearity by zeroing out negative
-    values while leaving positive values unchanged.
+       This class introduces non-linearity by zeroing out negative
+       values while leaving positive values unchanged.
 
-    Mathematical formula
-    --------------------
-    f(x) = { x > 0: x, x < 0: 0 }
+       Mathematical formula
+       --------------------
+       f(x) = { x > 0: x, x < 0: 0 }
 
-    Good For
-    --------
-    TBC
+       Good For
+       --------
+       TBC
 
-    Performance
-    -----------
-    TBC
+       Performance
+       -----------
+       TBC
 
-    Troubleshooting
-    ---------------
-    1. Dying ReLU problem: Occurs when neurons persist in returning zero,
-    thus resulting in zero gradient, which leads to neuron never activating
-    and being unable to learn.
+       Troubleshooting
+       ---------------
+       **1. Dying ReLU problem:** Occurs when neurons persist in returning zero,
+       thus resulting in zero gradient, which leads to neuron never activating
+       and being unable to learn.
 
-    Fixing the dying ReLU problem is essential becuse if many neurons die,
-    the neural network's ability to learn complex data drops. It can slow down
-    training and reduce performance.
+       Fixing the dying ReLU problem is essential becuse if many neurons die,
+       the neural network's ability to learn complex data drops. It can slow down
+       training and reduce performance.
 
-    Diagnosis: The learning rate stays unchanged, even after couple of epochs
+       **Diagnosis:** The learning rate stays unchanged, even after couple of epochs
 
-    Cause:
-    a) Weight Initialization: If weights are set in a way that makes the neurons outputs
-    mainly negative values, after passing through the activation functions, these
-    neurons may become permatetly inactive.
+       **Causes**: This problem might be casued by:
 
-    b) LARGE negative biases: Even when the weight is positive, a large negative
-    bias, after being added to w * x, can lead to negative output. Despite having
-    a valid input and positive weight, the large negative bias may lead to the
-    neuron outputting values below zero. If such biases persist across many neurons,
-    they can cause these neurons to become inactive.
+       **a) Weight Initialization:** If weights are set in a way that makes the neurons outputs
+       mainly negative values, after passing through the activation functions, these
+       neurons may become permatetly inactive.
 
-    c) Too HIGH Learning Rate: When learning rate is too high it can update parameters
-    with large negative values. For example:
-    dinput = 10
-    weight = 0.5
-    learning_rate = 1
-    w_new = w - learning_rate * dinput = 0.5 - 1 * 10 = -9.5
+       **b) LARGE negative biases:** Even when the weight is positive, a large negative
+       bias, after being added to w * x, can lead to negative output. Despite having
+       a valid input and positive weight, the large negative bias may lead to the
+       neuron outputting values below zero. If such biases persist across many neurons,
+       they can cause these neurons to become inactive.
 
-    Solutions:
-    a) **Using LeakyReLU**, which allows non-zero gradient for negative values,
-    ensuring the neurons maintain some level of activity, even when the input
-    is negative.
-    b) **Exploring other activation functions** such as: PReLU, ELU
-    c) **Lower learning rates** can prevent weights from becoming excessively negative,
-    after updates, which reduces the risk of neurons returning negative values
-    d) **Proper initialization** can ensure, the neurons start
-    with values more likely to keep them active in the early stages of learning
-    e) **Batch Normalization** TBC
+       **c) Too HIGH Learning Rate:** When learning rate is too high it can update parameters
+       with large negative values. For example:\n
+       dinput = 10\n
+       w (weight) = 0.5\n
+       lr (learning rate) = 1\n
+       w_new = w - lr * dinput = 0.5 - 1 * 10 = -9.5
 
-    2. Unbounded Output: Because ReLU is unbounded on the positive side, this
-    can lead to gradients growing exponentially, reaching astronomical values
-    thus destabilizing the model. Common issue in RNN.
+       **Solutions:** One of these solutions may help with the issue
 
-    Diagnosis:
-        a) Loss function suddenly jumps to absurdly high values
-        b) During training, loss function returns 'NaN'
-        c) Weights are 'inf'
+       **a) Using LeakyReLU**, which allows non-zero gradient for negative values,
+       ensuring the neurons maintain some level of activity, even when the input
+       is negative.
 
-    Solutions:
-    a) **Gradient Clipping** is used for exploding gradients problem. This method
-    clips the graients to be in a certain threshold for example to be between -4 and 4.
-    This method has its drawback, because by clipping the gradient, the vector direction
-    may change. To maintain the direction of the vector, we can **Clip By Norm**, which
-    means, instead of only clipping values outside of the range, we are lowering all of
-    our gradient values to be in betweeen -1 and 1. The drawback of this method is that
-    some of the vales may become very small.
-    b) **Proper initialization** TBC
-    c) **Batch Normalization** TBC
+       **b) Exploring other activation functions** such as: PReLU, ELU
 
-    3. Noisy Gradients:
+       **c) Lower learning rates** can prevent weights from becoming excessively negative,
+       after updates, which reduces the risk of neurons returning negative values
 
-    Video Explanation
-    -----------
-    ENG: ccc
-    PL: ccc
+       **d) Proper initialization** can ensure, the neurons start
+       with values more likely to keep them active in the early stages of learning
 
-    Attributes
-    ----------
-    input : np.ndarray
-        The input passed to the forward method.
-    output : np.ndarray
-        The result after applying the activation function.
-    """
+       **e) Batch Normalization** TBC
+
+       **2. Unbounded Output:** Because ReLU is unbounded on the positive side, this
+       can lead to gradients growing exponentially, reaching astronomical values
+       thus destabilizing the model. Common issue in RNN.
+
+       **Diagnosis:**
+            a) Loss function suddenly jumps to absurdly high values\n
+            b) During training, loss function returns 'NaN'\n
+            c) Weights are 'inf'
+
+       **Solutions:**
+
+       **a) Gradient Clipping** is used for exploding gradients problem. This method
+       clips the graients to be in a certain threshold for example to be between -4 and 4.
+       This method has its drawback, because by clipping the gradient, the vector direction
+       may change. To maintain the direction of the vector, we can **Clip By Norm**, which
+       means, instead of only clipping values outside of the range, we are lowering all of
+       our gradient values to be in betweeen -1 and 1. The drawback of this method is that
+       some of the vales may become very small.
+
+       **b) Proper initialization** TBC
+
+       **c) Batch Normalization** TBC
+
+       **3. Noisy Gradients:** 
+
+       Video Explanation
+       -----------
+       **ENG:** ccc\n
+       **PL:** ccc
+
+       Attributes
+       ----------
+       input : np.ndarray
+           The input passed to the forward method.
+       output : np.ndarray
+           The result after applying the activation function.
+       """
     def forward(self, inputs: np.ndarray) -> np.ndarray:
         """
         TBC
