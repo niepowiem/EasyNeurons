@@ -187,7 +187,6 @@ class Softmax:
 
     PL:
     Ta funkcja zwraca rozkład procentowy z wyników warstwy wyjściowej (tylko jedna odpowiedź). Należy ją stosować tylko na warstwie wyjściowej: Wyjaśnienie:
-    https://www.youtube.com/watch?v=XNcbSeSeMUk
     """
 
     def forward(self, inputs):
@@ -196,9 +195,21 @@ class Softmax:
         :param inputs: Matrix of neuronal output
         :return:
         """
-        self.input = inputs
+
+        self.inputs = inputs
+
         suma = np.exp(inputs - np.max(inputs, axis=1, keepdims=True))
         self.output = suma / np.sum(suma, axis=1, keepdims=True)
+
+    def backward(self, dinputs):
+
+        self.dvalues = np.empty_like(dinputs)
+
+        for index, (single_output, single_dvalues) in enumerate(zip(self.output, dinputs)):
+            single_output = single_output.reshape(-1, 1)
+            jacobian_matrix = np.diagflat(single_output) - np.dot(single_output, single_output.T)
+
+            self.dvalues[index] = np.dot(jacobian_matrix, single_dvalues)
 
 class Sigmoid:
     """
