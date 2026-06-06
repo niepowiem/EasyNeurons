@@ -229,9 +229,15 @@ class Sigmoid:
         self.input = inputs
         self.output = 1 / (1 + np.exp(-inputs))
 
+    def backward(self, dvalues):
+        self.dinputs = dvalues * (1 - self.output) * self.output
+
 class Linear:
     def forward(self, inputs):
         self.input = inputs
+
+    def backward(self, dinputs):
+        self.dvalues = np.ones(dinputs.shape)
 
 class Binary:
     def forward(self, inputs):
