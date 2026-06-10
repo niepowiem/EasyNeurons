@@ -131,7 +131,6 @@ class ReLU:
 
         return dvalues
 
-
 class LeakyReLU:
     def __init__(self, alpha=0.01):
         self.alpha = alpha
@@ -139,15 +138,15 @@ class LeakyReLU:
     def forward(self, inputs: np.ndarray) -> np.ndarray:
         """
         TBC
-        :param inputs: 
-        :return: 
+        :param inputs:
+        :return:
         """
-        
-        self.input = inputs
-        self.output = np.maximum(self.alpha * inputs, inputs)
-        
+
+        self.inputs = inputs
+        self.output = np.where(inputs > 0, inputs, self.alpha * inputs)
+
         return self.output
-        
+
     def backward(self, dvalues: np.ndarray) -> np.ndarray:
         """
         TBC
@@ -155,14 +154,12 @@ class LeakyReLU:
         :return:
         """
 
-        # Since we need to modify the original variable,
-        # let's make a copy of the values first
-        self.dvalues = dvalues.copy()
+        self.dinputs = dvalues.copy()
 
-        # Zero gradient where input values were negative
-        self.dvalues[self.inputs <= 0] = self.alpha
+        # Where <0, gradient * alpha
+        self.dinputs[self.inputs <= 0] *= self.alpha
 
-        return dvalues
+        return self.dinputs
 
 class PReLU:
     def forward(self, inputs, alpha=0.01):
@@ -202,7 +199,6 @@ class Softmax:
         self.output = suma / np.sum(suma, axis=1, keepdims=True)
 
     def backward(self, dinputs):
-
         self.dvalues = np.empty_like(dinputs)
 
         for index, (single_output, single_dvalues) in enumerate(zip(self.output, dinputs)):
