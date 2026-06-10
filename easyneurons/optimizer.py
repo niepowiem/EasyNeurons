@@ -1,37 +1,6 @@
 import numpy as np
 
 class StochasticGradientDescent:
-    def __init__(self, learning_rate=1.0):
-        self.learning_rate = learning_rate
-
-    def update_params(self, layer):
-        layer.weights += -self.learning_rate * layer.dweights
-        layer.biases += -self.learning_rate * layer.dbiases
-
-class StochasticGradientDescent2:
-    def __init__(self, learning_rate=1.0, decay=0.):
-        self.learning_rate = learning_rate
-        self.current_learning_rate = learning_rate
-        self.decay = decay
-
-        self.iterations = 0
-
-    def pre_update_params(self):
-        if self.decay:
-            # L/(1+d*x)
-            self.current_learning_rate = self.learning_rate * (1 / (1 + self.iterations * self.decay))
-
-            # L/((1+d)^x)
-            # self.current_learning_rate /= 1 + self.decay
-
-    def update_params(self, layer):
-        layer.weights += -self.learning_rate * layer.dweights
-        layer.biases += -self.learning_rate * layer.dbiases
-
-    def post_update_params(self):
-        self.iterations += 1
-
-class StochasticGradientDescent3:
     def __init__(self, learning_rate=1.0, decay=0., momentum = 0.):
         self.learning_rate = learning_rate
         self.current_learning_rate = learning_rate
