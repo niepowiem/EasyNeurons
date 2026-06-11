@@ -90,7 +90,7 @@ class ReLU:
 
        **c) Batch Normalization** TBC
 
-       **3. Noisy Gradients:** 
+       **3. Noisy Gradients:**
 
        Video Explanation
        -----------
@@ -104,13 +104,14 @@ class ReLU:
        output : np.ndarray
            The result after applying the activation function.
        """
+
     def forward(self, inputs: np.ndarray) -> np.ndarray:
         """
         TBC
         :param dvalues:
         :return:
         """
-        self.input = inputs
+        self.inputs = inputs
         self.output = np.maximum(0, inputs)
 
         return self.output
@@ -162,20 +163,42 @@ class LeakyReLU:
         return self.dinputs
 
 class PReLU:
-    def forward(self, inputs, alpha=0.01):
-        self.input = inputs
+    def __init__(self, alpha=0.01, channel_wise=False):
+        self.init_alpha = alpha
+        self.channel_wise = channel_wise
 
-class ELU:
-    def forward(self, inputs, alpha=0.01):
-        self.input = inputs
+        # Te zmienne zostaną zainicjalizowane w forward/backward
+        self.alphas = None
+        self.input = None
+        self.output = None
+        self.dinputs = None
+        self.dalpha = None
 
-class GELU:
-    def forward(self, inputs, alpha=0.01):
-        self.input = inputs
+    def forward(self, inputs: np.ndarray) -> np.ndarray:
+        if self.alphas is None:
+            if self.channel_wise:
+                self.alphas = np.full(inputs.shape[1], self.init_alpha, dtype=float)
+            else:
+                self.alphas = np.array(self.init_alpha, dtype=float)
 
-class SELU:
-    def forward(self, inputs, alpha=0.01):
         self.input = inputs
+        self.output = np.where(inputs > 0, inputs, self.alphas * inputs)
+
+        return self.output
+
+    def backward(self, dvalues: np.ndarray) -> np.ndarray:
+        self.dinputs = dvalues.copy()
+        self.dinputs[self.input <= 0] *= self.alphas
+
+        # Używamy 0.0 zamiast 0, aby NumPy nie mieszał typów int i float
+        dalpha_elements = np.where(self.input <= 0, dvalues * self.input, 0.0)
+
+        if self.channel_wise:
+            self.dalpha = np.sum(dalpha_elements, axis=0)
+        else:
+            self.dalpha = np.sum(dalpha_elements)
+
+        return self.dinputs
 
 class Softmax:
     """
@@ -228,146 +251,45 @@ class Sigmoid:
     def backward(self, dvalues):
         self.dinputs = dvalues * (1 - self.output) * self.output
 
-class Linear:
-    def forward(self, inputs):
-        self.input = inputs
-
-    def backward(self, dinputs):
-        self.dvalues = np.ones(dinputs.shape)
-
-class Binary:
-    def forward(self, inputs):
-        self.output = np.heaviside(inputs, 1)
-
-class Swish:
-    def forward(self, inputs, alpha=0.01):
-        self.input = inputs
-
-class Mish:
-    def forward(self, inputs, alpha=0.01):
-        self.input = inputs
-
-class Sin:
-    def forward(self, inputs, alpha=0.01):
-        self.input = inputs
-
-class Tanh:
-    def forward(self, inputs):
-        self.input = inputs
-        self.output = np.tanh(input)
-
-class Softsign:
-    def forward(self, inputs, alpha=0.01):
-        self.input = inputs
-
-class Softplus:
-    def forward(self, inputs, alpha=0.01):
-        self.input = inputs
-
-class Snake:
-    def forward(self, inputs, alpha=0.01):
-        self.input = inputs
-
-class GLU:
-    def forward(self, inputs, alpha=0.01):
-        self.input = inputs
-
-class ReLUClip:
-    def forward(self, inputs, max=6):
-        self.input = inputs
-
-class HardSigmoid:
-    def forward(self, inputs, alpha=0.01):
-        self.input = inputs
-
-class HardSwish:
-    def forward(self, inputs, alpha=0.01):
-        self.input = inputs
-
-class HardTanh:
-    def forward(self, inputs, alpha=0.01):
-        self.input = inputs
-
-class LogSoftmax:
-    def forward(self, inputs, alpha=0.01):
-        self.input = inputs
-
-class SiLU:
-    def forward(self, inputs, alpha=0.01):
-        self.input = inputs
-
-class CReLU:
-    def forward(self, inputs, alpha=0.01):
-        self.input = inputs
-
-class GumbelSoftmax:
-    def forward(self, inputs, alpha=0.01):
-        self.input = inputs
-
-class Softmin:
-    def forward(self, inputs, alpha=0.01):
-        self.input = inputs
-
-class Threshold:
-    def forward(self, inputs, alpha=0.01):
-        self.input = inputs
-
-class StarReLU:
-    def forward(self, inputs, alpha=0.01):
-        self.input = inputs
-
-class Gaussian:
-    def forward(self, inputs, alpha=0.01):
-        self.input = inputs
-
-class Sinc:
-    def forward(self, inputs, alpha=0.01):
-        self.input = inputs
-
-class ArcTanh:
-    def forward(self, inputs, alpha=0.01):
-        self.input = inputs
-
-class ISRU:
-    def forward(self, inputs, alpha=0.01):
-        self.input = inputs
-
-class BentIdentity:
-    def forward(self, inputs, alpha=0.01):
-        self.input = inputs
-
-class Maxout:
-    def forward(self, inputs, alpha=0.01):
-        self.input = inputs
-
-class SwiGLU:
-    def forward(self, inputs, alpha=0.01):
-        self.input = inputs
-
-class CELU:
-    def forward(self, inputs, alpha=0.01):
-        self.input = inputs
-
-class GeGLU:
-    def forward(self, inputs, alpha=0.01):
-        self.input = inputs
-
-class ReGLU:
-    def forward(self, inputs, alpha=0.01):
-        self.input = inputs
-
-class Abs:
-    def forward(self, inputs, alpha=0.01):
-        self.input = inputs
-
-class Cosine:
-    def forward(self, inputs, alpha=0.01):
-        self.input = inputs
-
-class SQNL:
-    def forward(self, inputs, alpha=0.01):
-        self.input = inputs
-
-class FReLU:
-    def forward(self, inputs, alpha=0.01):
-        self.input = inputs
+"""
+To add:
+0. PReLU
+1. ELU
+2. GELU
+3. SELU
+4. Linear
+5. Binary
+6. Swish
+7. Mish
+8. Sin
+9. Tanh
+10. Softsign
+11. Softplus
+12. Snake
+13. GLU
+14. ReLUClip
+15. HardSigmoid
+16. HardSwish
+17. HardTanh
+18. LogSoftmax
+19. SiLU
+20. CReLU
+21. GumbelSoftmax
+22. Softmin
+23. Threshold
+24. StarReLU
+25. Gaussian
+26. Sinc
+27. ArcTanh
+28. ISRU
+29. BentIdentity
+30. Maxout
+31. SwiGLU
+32. CELU
+33. GeGLU
+34. ReGLU
+35. Abs
+36. Cosine
+37. SQNL
+38. FReLU
+"""
