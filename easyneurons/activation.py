@@ -1,6 +1,7 @@
 import numpy as np
+from easyneurons.base import NeuralElement
 
-class ReLU:
+class ReLU(NeuralElement):
     """
        Rectified Linear Unit (ReLU) activation function
        ------------------------------------------------
@@ -112,9 +113,9 @@ class ReLU:
         :return:
         """
         self.inputs = inputs
-        self.output = np.maximum(0, inputs)
+        self.outputs = np.maximum(0, inputs)
 
-        return self.output
+        return self.outputs
 
     def backward(self, dvalues: np.ndarray) -> np.ndarray:
         """
@@ -123,16 +124,12 @@ class ReLU:
         :return:
         """
 
-        # Since we need to modify the original variable,
-        # let's make a copy of the values first
-        self.dvalues = dvalues.copy()
+        self.dinputs = dvalues.copy()
+        self.dinputs[self.inputs <= 0] = 0
 
-        # Zero gradient where input values were negative
-        self.dvalues[self.inputs <= 0] = 0
+        return self.dinputs
 
-        return dvalues
-
-class LeakyReLU:
+class LeakyReLU(NeuralElement):
     def __init__(self, alpha=0.01):
         self.alpha = alpha
 
@@ -144,9 +141,9 @@ class LeakyReLU:
         """
 
         self.inputs = inputs
-        self.output = np.where(inputs > 0, inputs, self.alpha * inputs)
+        self.outputs = np.where(inputs > 0, inputs, self.alpha * inputs)
 
-        return self.output
+        return self.outputs
 
     def backward(self, dvalues: np.ndarray) -> np.ndarray:
         """
@@ -162,45 +159,16 @@ class LeakyReLU:
 
         return self.dinputs
 
-class PReLU:
-    def __init__(self, alpha=0.01, channel_wise=False):
-        self.init_alpha = alpha
-        self.channel_wise = channel_wise
+    def get_parameters(self, copy: bool = True) -> dict:
+        if copy:
+            return {"alpha": self.alpha.copy()}
 
-        # Te zmienne zostaną zainicjalizowane w forward/backward
-        self.alphas = None
-        self.input = None
-        self.output = None
-        self.dinputs = None
-        self.dalpha = None
+        return {"alpha": self.alpha}
 
-    def forward(self, inputs: np.ndarray) -> np.ndarray:
-        if self.alphas is None:
-            if self.channel_wise:
-                self.alphas = np.full(inputs.shape[1], self.init_alpha, dtype=float)
-            else:
-                self.alphas = np.array(self.init_alpha, dtype=float)
+    def set_parameters(self, params: dict):
+        self.alpha = params["alpha"]
 
-        self.input = inputs
-        self.output = np.where(inputs > 0, inputs, self.alphas * inputs)
-
-        return self.output
-
-    def backward(self, dvalues: np.ndarray) -> np.ndarray:
-        self.dinputs = dvalues.copy()
-        self.dinputs[self.input <= 0] *= self.alphas
-
-        # Używamy 0.0 zamiast 0, aby NumPy nie mieszał typów int i float
-        dalpha_elements = np.where(self.input <= 0, dvalues * self.input, 0.0)
-
-        if self.channel_wise:
-            self.dalpha = np.sum(dalpha_elements, axis=0)
-        else:
-            self.dalpha = np.sum(dalpha_elements)
-
-        return self.dinputs
-
-class Softmax:
+class Softmax(NeuralElement):
     """
     ENG:
     This function is mapping results of output layer to probability distribution (only one answer). It's ment to be used only for output layer. For more:
@@ -209,7 +177,7 @@ class Softmax:
     Ta funkcja zwraca rozkład procentowy z wyników warstwy wyjściowej (tylko jedna odpowiedź). Należy ją stosować tylko na warstwie wyjściowej: Wyjaśnienie:
     """
 
-    def forward(self, inputs):
+    def forward(self, inputs: np.ndarray) -> np.ndarray:
         """
         Using formula: e^input of inputs / Σj e^inputs
         :param inputs: Matrix of neuronal output
@@ -219,18 +187,22 @@ class Softmax:
         self.inputs = inputs
 
         suma = np.exp(inputs - np.max(inputs, axis=1, keepdims=True))
-        self.output = suma / np.sum(suma, axis=1, keepdims=True)
+        self.outputs = suma / np.sum(suma, axis=1, keepdims=True)
 
-    def backward(self, dinputs):
-        self.dvalues = np.empty_like(dinputs)
+        return self.outputs
 
-        for index, (single_output, single_dvalues) in enumerate(zip(self.output, dinputs)):
+    def backward(self, dinputs: np.ndarray) -> np.ndarray:
+        self.dinputs = np.empty_like(dinputs)
+
+        for index, (single_output, single_dvalues) in enumerate(zip(self.outputs, dinputs)):
             single_output = single_output.reshape(-1, 1)
             jacobian_matrix = np.diagflat(single_output) - np.dot(single_output, single_output.T)
 
-            self.dvalues[index] = np.dot(jacobian_matrix, single_dvalues)
+            self.dinputs[index] = np.dot(jacobian_matrix, single_dvalues)
 
-class Sigmoid:
+        return self.dinputs
+
+class Sigmoid(NeuralElement):
     """
     ENG:
     This function is mapping results of output layer to probability distribution (multiple answers). For more watch:
@@ -239,17 +211,21 @@ class Sigmoid:
     Ta funkcja zwraca rozkład procentowy z wyników warstwy wyjściowej (wiele odpowiedzi). Wyjaśnienie:
     """
 
-    def forward(self, inputs):
+    def forward(self, inputs: np.ndarray) -> np.ndarray:
         """
         Using formula: 1 / (1 + e^(-input of inputs))
         :param inputs: Matrix of neuronal output
         :return:
         """
-        self.input = inputs
-        self.output = 1 / (1 + np.exp(-inputs))
+        self.inputs = inputs
+        self.outputs = 1 / (1 + np.exp(-inputs))
 
-    def backward(self, dvalues):
-        self.dinputs = dvalues * (1 - self.output) * self.output
+        return self.outputs
+
+    def backward(self, dvalues: np.ndarray) -> np.ndarray:
+        self.dinputs = dvalues * (1 - self.outputs) * self.outputs
+
+        return self.dinputs
 
 """
 To add:
