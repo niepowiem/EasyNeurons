@@ -1,6 +1,7 @@
 import numpy as np
+from easyneurons.base import NeuralElement
 
-class NLayer:
+class NLayer(NeuralElement):
     """
     ENG:
     This class is a simple neuronal layer. For more watch: https://www.youtube.com/watch?v=Q_qKSvRTkbk
@@ -22,7 +23,7 @@ class NLayer:
 
         self.biases = np.zeros((1, n_outputs))
 
-    def forward(self, inputs):
+    def forward(self, inputs: np.ndarray) -> np.ndarray:
         """
         ENG:
         This function if performing neuronal calculations - dot product
@@ -35,9 +36,11 @@ class NLayer:
         """
 
         self.inputs = inputs
-        self.output = np.dot(inputs, self.weights) + self.biases
+        self.outputs = np.dot(inputs, self.weights) + self.biases
 
-    def backward(self, dinputs: np.ndarray) -> np.ndarray:
+        return self.outputs
+
+    def backward(self, dvalues: np.ndarray) -> np.ndarray:
         """
         TBC
         :param dvalues:
@@ -45,10 +48,20 @@ class NLayer:
         """
 
         # Gradients on parameters
-        self.dweights = np.dot(self.inputs.T, dinputs)
-        self.dbiases = np.sum(dinputs, axis=0, keepdims=True)
+        self.dweights = np.dot(self.inputs.T, dvalues)
+        self.dbiases = np.sum(dvalues, axis=0, keepdims=True)
 
         # Gradient on values
-        self.dvalues = np.dot(dinputs, self.weights.T)
+        self.dinputs = np.dot(dvalues, self.weights.T)
 
-        return self.dvalues
+        return self.dinputs
+
+    def get_parameters(self, copy: bool = True):
+        if copy:
+            return {"weights": self.weights.copy(), "biases": self.biases.copy()}
+
+        return {"weights": self.weights, "biases": self.biases}
+
+    def set_parameters(self, params: dict):
+        self.weights = params["weights"]
+        self.biases = params["biases"]
