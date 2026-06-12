@@ -138,21 +138,27 @@ class Model:
         return model
 
 class Dataset:
-    def __init__(self, inputs: np.ndarray, answers: np.ndarray, batch_size: int = None):
+    def __init__(self, inputs: np.ndarray, answers: np.ndarray, batch_size: int = None, shuffle:bool=True, seed:int=None):
         if len(inputs) != len(answers):
             raise ValueError("The number of inputs and answers must match!")
 
         self.inputs = inputs
         self.answers = answers
         self.batch_size = batch_size
+        self.shuffle = shuffle
+        self.rng = np.random.default_rng(seed) 
 
     def __iter__(self):
+        n_samples = len(self.inputs)
+        indices = self.rng.permutation(n_samples) if self.shuffle else np.arange(n_samples)
+
         if not self.batch_size:
-            yield self.inputs, self.answers
+            yield self.inputs[indices], self.answers[indices]
             return
 
-        for start in range(0, len(self.inputs), self.batch_size):
-            yield zip(self.inputs[start:start + batch_size], self.answers[start:start + batch_size])
+        for start in range(0, n_samples, self.batch_size):
+            batch = indices[start:start + self.batch_size]
+            yield self.inputs[batch], self.answers[batch]
 
     def __len__(self):
         return len(self.inputs)
