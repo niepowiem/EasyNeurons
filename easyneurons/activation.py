@@ -1,5 +1,5 @@
 import numpy as np
-from easyneurons.base import NeuralElement
+from easyneurons.general import NeuralElement
 
 class ReLU(NeuralElement):
     """
