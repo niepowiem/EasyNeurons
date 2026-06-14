@@ -1,11 +1,15 @@
 import numpy as np
 from easyneurons import layer
-from easyneurons.base import Model, Dataset
+from easyneurons.general import Model, Dataset, Tracker
 from easyneurons.layer import *
 from easyneurons.layer import NLayer
 from itertools import batched
+from tqdm import tqdm
 
-class SGD:
+class Optimizer:
+    pass
+
+class SGD(Optimizer):
     def __init__(self, model: Model, learning_rate:float | int=1.0, decay:float | int=0., momentum:float | int=0.):
         self.model = model
 
@@ -21,7 +25,7 @@ class SGD:
     def pre_update_parameters(self):
         if self.decay:
             # L/(1+d*x)
-            self.current_learning_rate = self.learning_rate * (1 / (1 + self.iterations * self.decay))
+            self.current_learning_rate = self.learning_rate * (1 / (1 + self.epochs * self.decay))
 
     def update_parameters(self, element: NeuralElement):
         parameters = element.get_parameters(copy=False)
@@ -48,25 +52,36 @@ class SGD:
         element.set_parameters(updates)
 
     def post_update_parameters(self):
-        self.iterations += 1
+        self.epochs += 1
 
-    def train(self, dataset: Dataset, epochs: int, callback=None):
+    def train(self, dataset: Dataset, epochs: int, tracker: Tracker=None, callback=None):
         for epoch in range(epochs):
             self.pre_update_parameters()
-
-            results = None
-            answers = None
+            self.iterations = 0
 
             for inputs, answers in dataset:
                 results = self.model.forward(inputs, answers)
-                self.model.backward()
 
+                self.model.backward()
                 for element in self.model.elements:
                     self.update_parameters(element)
 
-                self.post_update_parameters()
+                if tracker:
+                    tracker.log({
+                        "epochs": self.epochs,
+                        "iterations": self.iterations,
+                        "loss": results["loss"],
+                        "learning_rate": self.current_learning_rate,
+                        "decay": self.decay,
+                        "momentum": self.momentum
+                    })
 
-            if callback:
-                callback(self, results, answers)
+                if callback:
+                    callback({
+                        "results": results,
+                        "answers": answers
+                    })
 
-            self.epochs += 1
+                self.iterations += 1
+
+            self.post_update_parameters()
