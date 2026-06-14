@@ -1,5 +1,5 @@
 import numpy as np
-from .base import Loss
+from .general import Loss
 
 class CategoricalCrossEntropy(Loss):
     def forward(self, inputs: np.ndarray, answers: np.ndarray) -> float | int:
