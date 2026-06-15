@@ -164,26 +164,29 @@ class Dataset:
         return len(self.inputs)
 
 class Tracker:
-    def __init__(self, log_every: int = 1):
-        if log_every < 1:
-            raise ValueError("log_every must be greater or equal to 1")
+    def __init__(self, every: int = 1):
+        if every < 1:
+            raise ValueError("every must be greater or equal to 1")
 
-        self.log_data = {}
-        self.log_every = log_every
-        self.log_iterations = 0
+        self.data = {}
+        self.every = every
+        self.calls = 0
 
-    def log(self, parameters: dict):
-        if self.log_iterations % self.log_every == 0:
-            for key, value in parameters.items():
-                self.log_data.setdefault(key, []).append(value)
+    def log(self, data: dict):
+        if self.calls % self.every == 0:
+            for key, value in data.items():
+                self.data.setdefault(key, []).append(value)
 
-        self.log_iterations += 1
+        self.calls += 1
+
+    def clear(self):
+        self.data = {}
 
     def __repr__(self):
-        if not self.log_data:
+        if not self.data:
             return "No data found!"
 
-        return ", ".join([f"{key}: {value[-1]}" for key, value in self.log_data.items()])
+        return ", ".join([f"{key}: {value[-1]}" for key, value in self.data.items()])
 
 def _build_registry(base_cls: __subclasses__) -> dict:
     registry = {}
