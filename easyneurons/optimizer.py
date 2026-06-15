@@ -1,13 +1,15 @@
 import numpy as np
 from easyneurons import layer
 from easyneurons.general import Model, Dataset, Tracker
+from easyneurons.metrics import Metrics
 from easyneurons.layer import *
 from easyneurons.layer import NLayer
 from itertools import batched
 from tqdm import tqdm
 
 class Optimizer:
-    pass
+    def get_parameters(self, copy=False):
+        return None
 
 class SGD(Optimizer):
     def __init__(self, model: Model, learning_rate:float | int=1.0, decay:float | int=0., momentum:float | int=0.):
@@ -21,6 +23,24 @@ class SGD(Optimizer):
 
         self.iterations = 0
         self.epochs = 0
+
+    def get_parameters(self, copy: bool = True):
+        if copy:
+            return {
+                "epochs": self.epochs.copy(),
+                "iterations": self.iterations.copy(),
+                "learning_rate": self.current_learning_rate.copy(),
+                "decay": self.decay.copy(),
+                "momentum": self.momentum.copy()
+            }
+
+        return {
+            "epochs": self.epochs,
+            "iterations": self.iterations,
+            "learning_rate": self.current_learning_rate,
+            "decay": self.decay,
+            "momentum": self.momentum
+        }
 
     def pre_update_parameters(self):
         if self.decay:
@@ -54,7 +74,7 @@ class SGD(Optimizer):
     def post_update_parameters(self):
         self.epochs += 1
 
-    def train(self, dataset: Dataset, epochs: int, tracker: Tracker=None, callback=None):
+    def train(self, dataset: Dataset, epochs: int, tracker: Tracker=None, metrics: Metrics=None, callback=None):
         for epoch in range(epochs):
             self.pre_update_parameters()
             self.iterations = 0
@@ -67,14 +87,10 @@ class SGD(Optimizer):
                     self.update_parameters(element)
 
                 if tracker:
-                    tracker.log({
-                        "epochs": self.epochs,
-                        "iterations": self.iterations,
-                        "loss": results["loss"],
-                        "learning_rate": self.current_learning_rate,
-                        "decay": self.decay,
-                        "momentum": self.momentum
-                    })
+                    tracker.log({ "loss": results["loss"] } | self.get_parameters(copy=False))
+
+                if metrics:
+                    metrics.add(results["output"], answers)
 
                 if callback:
                     callback({
@@ -83,5 +99,9 @@ class SGD(Optimizer):
                     })
 
                 self.iterations += 1
+
+            if metrics:
+                metrics.compute()
+                metrics.reset()
 
             self.post_update_parameters()
