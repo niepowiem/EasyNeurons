@@ -32,8 +32,20 @@ class CategoricalCrossEntropy(Loss):
 
 class MeanSquaredError(Loss):
     def forward(self, inputs: np.ndarray, answers: np.ndarray):
+        self.answers = answers
         self.inputs = inputs
     
-        self.outputs = np.mean((inputs - answers)**2, axis=-1)
+        # self.outputs = np.mean((inputs - answers)**2, axis=-1)
+        self.outputs = np.mean((inputs - answers)**2)
 
         return self.outputs
+
+    def backward(self):
+        samples = len(self.inputs)
+        labels = len(self.inputs[0])
+
+        # Gradient on values
+        self.dinputs = -2 * (self.answers - self.inputs) / labels
+        self.dinputs = self.dinputs / samples
+
+        return self.dinputs
