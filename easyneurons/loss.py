@@ -48,4 +48,24 @@ class MeanSquaredError(Loss):
         self.dinputs = -2 * (self.answers - self.inputs) / labels
         self.dinputs = self.dinputs / samples
 
+class MeanAbsoluteError(Loss):
+    def forward(self, inputs: np.ndarray, answers: np.ndarray):
+        self.answers = answers
+        self.inputs = inputs
+
+        # self.outputs = np.mean(np.abs(answers - inputs), axis=-1)
+        self.outputs = np.mean(np.abs(answers - inputs))
+
+        return self.outputs
+
+    def backward(self):
+        samples = len(self.inputs)
+        labels = len(self.inputs[0])
+
+        # Calculate gradient
+        self.dinputs = np.sign(self.answers - self.inputs) / labels
+        self.dinputs = self.dinputs / samples
+
+        return self.dinputs
+
         return self.dinputs
