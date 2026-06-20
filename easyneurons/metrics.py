@@ -216,4 +216,87 @@ class ClassificationMetrics(Metrics):
 
         return metrics
 
+class CategoricalClassificationMetrics(Metrics):
+    def __init__(self,accuracy:bool = True,
+                 precision:bool = True,
+                 recall:bool = True,
+                 f1:bool = True,
+                 mcc:bool = False,
+                 specificity: bool = False,
+                 npv: bool = False,
+                 k: bool = False,
+                 lr: bool = False,
+                 balanced_accuracy: bool = False,
+                 hamming: bool = False,
+                 # top_k: int = None, To add
+                 every: int = 1,
+                 print: bool = True):
 
+        super().__init__(every=every, print=print)
+
+        self.n_classes = 1
+        self.confusion_matrix = np.array([[0]])
+
+        self.accuracy = accuracy
+        self.precision = precision
+        self.recall = recall
+        self.f1 = f1
+        self.mcc = mcc
+        self.specificity = specificity
+        self.npv = npv
+        self.k = k
+        self.lr = lr
+        self.balanced_accuracy = balanced_accuracy
+        self.hamming = hamming
+        # self.top_k = top_k To Add
+
+    def add(self, predictions: np.ndarray, answers: np.ndarray) -> None:
+        if len(answers.shape) == 2:
+            answers = np.argmax(answers, axis=1)
+
+        if len(predictions.shape) == 2:
+            predictions = np.argmax(predictions, axis=1)
+
+        current_c_classes = max(answers.max(), predictions.max()) + 1
+        if current_c_classes > self.n_classes:
+            difference = current_c_classes - self.n_classes
+
+            self.confusion_matrix = np.pad(self.confusion_matrix, ((0, difference), (0, difference)))
+            self.n_classes = current_c_classes
+
+        self.confusion_matrix += np.bincount(self.n_classes * answers + predictions,
+                                             minlength=self.n_classes ** 2).reshape(self.n_classes, self.n_classes)
+
+    def reset(self) -> None:
+        self.confusion_matrix[:] = 0
+
+    def calculate(self, force: bool=True) -> dict:
+        if not force:
+            if self.calls % self.every != 0:
+                self.calls += 1
+
+                return
+
+        metrics = { }
+
+        correct_answers = np.diag(self.confusion_matrix)
+        confusion_matrix_sum = self.confusion_matrix.sum()
+
+
+
+        confusion_matrix_column_sums = self.confusion_matrix.sum(axis=0) if self.precision or self.f1 or self.specificity else None
+        confusion_matrix_row_sums = self.confusion_matrix.sum(axis=1) if self.precision or self.f1 or self.specificity else None
+
+        if self.accuracy:
+            acc = correct_answers / confusion_matrix_sum
+
+            metrics["accuracy"] = acc.sum()
+            metrics["accuracy_per_class"] = acc * self.n_classes
+
+        if self.precision or self.f1:
+            prec = np.divide(correct_answers, confusion_matrix_column_sums,
+                                             out=np.zeros(self.n_classes),
+                                             where=confusion_matrix_column_sums != 0)
+
+            metrics["precision"] = prec.mean()
+            metrics["precision_per_class"] = prec
