@@ -19,7 +19,6 @@ class CategoricalCrossEntropy(Loss):
 
     def backward(self) -> np.ndarray:
         samples = len(self.inputs)
-
         labels = len(self.inputs[0])
 
         if len(self.answers.shape) == 1:
@@ -48,6 +47,31 @@ class MeanSquaredError(Loss):
         self.dinputs = -2 * (self.answers - self.inputs) / labels
         self.dinputs = self.dinputs / samples
 
+        return self.dinputs
+
+class BinaryCrossEntropy(Loss):
+    def forward(self, inputs: np.ndarray, answers: np.ndarray) -> float | int:
+        self.answers = answers
+        self.inputs = inputs
+
+        inputs_clipped = np.clip(inputs, 1e-7, 1 - 1e-7)
+
+        sample_losses = -(answers * np.log(inputs_clipped) + (1 - answers) * np.log(1 - inputs_clipped))
+        sample_losses = np.mean(sample_losses, axis=-1)
+
+        self.outputs = np.mean(sample_losses)
+
+    def backward(self):
+        samples = len(self.inputs)
+        labels = len(self.inputs[0])
+
+        clipped_dvalues = np.clip(self.inputs, 1e-7, 1 - 1e-7)
+
+        self.dinputs = -(self.answers / clipped_dvalues - (1 - self.answers) / (1 - clipped_dvalues)) / labels
+        self.dinputs = self.dinputs / samples
+
+        return self.dinputs
+
 class MeanAbsoluteError(Loss):
     def forward(self, inputs: np.ndarray, answers: np.ndarray):
         self.answers = answers
@@ -65,7 +89,5 @@ class MeanAbsoluteError(Loss):
         # Calculate gradient
         self.dinputs = np.sign(self.answers - self.inputs) / labels
         self.dinputs = self.dinputs / samples
-
-        return self.dinputs
 
         return self.dinputs
