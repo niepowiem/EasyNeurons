@@ -53,6 +53,106 @@ class ClassificationMetrics(Metrics):
     def reset(self):
         self.confusion_matrix[:] = 0
 
+    @property
+    def npv(self) -> np.ndarray:
+        # Negative Predictive Value
+        # TN / (TN + FN)
+        TP = np.diag(self.confusion_matrix)
+        FP = self.confusion_matrix.sum(axis=0) - TP
+
+        FN = self.confusion_matrix.sum(axis=1) - TP
+        TN = self.confusion_matrix.sum() - TP - FP - FN
+
+        divisor = TN + FN
+
+        return np.divide(TN, divisor,
+                         out=np.zeros(self.n_classes),
+                         where=divisor != 0)
+
+    @property
+    def lr_plus(self) -> np.ndarray:
+        # Positive Likelihood Ratio (LR+)
+        # Sensitivity / (1 - Specificity)  =>  TPR / FPR
+        TP = np.diag(self.confusion_matrix)
+        FP = self.confusion_matrix.sum(axis=0) - TP
+
+        FN = self.confusion_matrix.sum(axis=1) - TP
+        TN = self.confusion_matrix.sum() - TP - FP - FN
+
+        tpr_divisor = TP + FN
+        tpr = np.divide(TP, tpr_divisor, out=np.zeros(self.n_classes), where=tpr_divisor != 0)
+
+        fpr_divisor = FP + TN
+        fpr = np.divide(FP, fpr_divisor, out=np.zeros(self.n_classes), where=fpr_divisor != 0)
+
+        return np.divide(tpr, fpr,
+                         out=np.zeros(self.n_classes),
+                         where=fpr != 0)
+
+    @property
+    def lr_minus(self) -> np.ndarray:
+        # Negative Likelihood Ratio (LR-)
+        # (1 - Sensitivity) / Specificity  =>  FNR / TNR
+        TP = np.diag(self.confusion_matrix)
+        FP = self.confusion_matrix.sum(axis=0) - TP
+
+        FN = self.confusion_matrix.sum(axis=1) - TP
+        TN = self.confusion_matrix.sum() - TP - FP - FN
+
+        fnr_divisor = TP + FN
+        fnr = np.divide(FN, fnr_divisor, out=np.zeros(self.n_classes), where=fnr_divisor != 0)
+
+        tnr_divisor = TN + FP
+        tnr = np.divide(TN, tnr_divisor, out=np.zeros(self.n_classes), where=tnr_divisor != 0)
+
+        return np.divide(fnr, tnr,
+                         out=np.zeros(self.n_classes),
+                         where=tnr != 0)
+
+    @property
+    def mcc(self) -> np.ndarray:
+        # Matthews Correlation Coefficient
+        # (TP * TN - FP * FN) / sqrt((TP + FP) * (TP + FN) * (TN + FP) * (TN + FN))
+
+        # Rzutowanie na float64 zapobiega przepełnieniu (integer overflow) przy mnożeniu w mianowniku
+        TP = np.diag(self.confusion_matrix).astype(np.float64)
+        FP = (self.confusion_matrix.sum(axis=0) - TP).astype(np.float64)
+
+        FN = (self.confusion_matrix.sum(axis=1) - TP).astype(np.float64)
+        TN = (self.confusion_matrix.sum() - TP - FP - FN).astype(np.float64)
+
+        numerator = (TP * TN) - (FP * FN)
+        denominator_squared = (TP + FP) * (TP + FN) * (TN + FP) * (TN + FN)
+        denominator = np.sqrt(denominator_squared)
+
+        return np.divide(numerator, denominator,
+                         out=np.zeros(self.n_classes),
+                         where=denominator != 0)
+
+    @property
+    def cohens_kappa(self) -> float:
+        # (p_o - p_e) / (1 - p_e)
+        # Gdzie p_o to obserwowana zgodność (accuracy), a p_e to oczekiwana zgodność
+        total = self.confusion_matrix.sum()
+        if total == 0:
+            return 0.0
+
+        # p_o to po prostu dokładność (accuracy)
+        p_o = np.diag(self.confusion_matrix).sum() / total
+
+        # p_e: suma iloczynów sum wierszy i kolumn, podzielona przez kwadrat całkowitej sumy
+        sum_rows = self.confusion_matrix.sum(axis=1)
+        sum_cols = self.confusion_matrix.sum(axis=0)
+        p_e = np.sum(sum_rows * sum_cols) / (total ** 2)
+
+        divisor = 1.0 - p_e
+
+        if divisor == 0:
+            return 0.0
+
+        return float((p_o - p_e) / divisor)
+    
+    
     def compute(self, force: bool=True) -> dict:
         if not force:
             if self.calls % self.every != 0:
@@ -115,3 +215,5 @@ class ClassificationMetrics(Metrics):
             self.data.setdefault(key, []).append(value)
 
         return metrics
+
+
