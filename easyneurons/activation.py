@@ -115,7 +115,7 @@ class ReLU(NeuralElement):
         self.inputs = inputs
         self.outputs = np.maximum(0, inputs)
 
-        return self.outputs
+        return self
 
     def backward(self, dvalues: np.ndarray) -> np.ndarray:
         """
@@ -127,7 +127,7 @@ class ReLU(NeuralElement):
         self.dinputs = dvalues.copy()
         self.dinputs[self.inputs <= 0] = 0
 
-        return self.dinputs
+        return self
 
 class LeakyReLU(NeuralElement):
     def __init__(self, alpha=0.01):
@@ -143,7 +143,7 @@ class LeakyReLU(NeuralElement):
         self.inputs = inputs
         self.outputs = np.where(inputs > 0, inputs, self.alpha * inputs)
 
-        return self.outputs
+        return self
 
     def backward(self, dvalues: np.ndarray) -> np.ndarray:
         """
@@ -157,7 +157,7 @@ class LeakyReLU(NeuralElement):
         # Where <0, gradient * alpha
         self.dinputs[self.inputs <= 0] *= self.alpha
 
-        return self.dinputs
+        return self
 
     def get_parameters(self, copy: bool = True) -> dict:
         if copy:
@@ -189,7 +189,7 @@ class Softmax(NeuralElement):
         suma = np.exp(inputs - np.max(inputs, axis=1, keepdims=True))
         self.outputs = suma / np.sum(suma, axis=1, keepdims=True)
 
-        return self.outputs
+        return self
 
     def backward(self, dinputs: np.ndarray) -> np.ndarray:
         self.dinputs = np.empty_like(dinputs)
@@ -200,7 +200,7 @@ class Softmax(NeuralElement):
 
             self.dinputs[index] = np.dot(jacobian_matrix, single_dvalues)
 
-        return self.dinputs
+        return self
 
 class Sigmoid(NeuralElement):
     """
@@ -220,12 +220,12 @@ class Sigmoid(NeuralElement):
         self.inputs = inputs
         self.outputs = 1 / (1 + np.exp(-inputs))
 
-        return self.outputs
+        return self
 
     def backward(self, dvalues: np.ndarray) -> np.ndarray:
         self.dinputs = dvalues * (1 - self.outputs) * self.outputs
 
-        return self.dinputs
+        return self
 
 """
 To add:
