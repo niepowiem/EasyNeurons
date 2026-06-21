@@ -79,6 +79,8 @@ class SGD(Optimizer):
             self.pre_update_parameters()
             self.iterations = 0
 
+            # Loss for tacker
+            local_loss = 0
             for inputs, answers in dataset:
                 results = self.model.forward(inputs, answers)
 
@@ -86,8 +88,7 @@ class SGD(Optimizer):
                 for element in self.model.elements:
                     self.update_parameters(element)
 
-                if tracker:
-                    tracker.log({ "loss": results["loss"] } | self.get_parameters(copy=False))
+                local_loss += results["loss"]
 
                 if metrics:
                     metrics.add(results["output"], answers)
@@ -100,8 +101,11 @@ class SGD(Optimizer):
 
                 self.iterations += 1
 
+            if tracker:
+                tracker.log({"loss": local_loss / self.iterations} | self.get_parameters(copy=False))
+
             if metrics:
-                metrics.compute()
-                metrics.reset()
+                metrics.calculate(force=False)
+                metrics.clear()
 
             self.post_update_parameters()
