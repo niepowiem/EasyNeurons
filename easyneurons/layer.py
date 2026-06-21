@@ -38,7 +38,7 @@ class NLayer(NeuralElement):
         self.inputs = inputs
         self.outputs = np.dot(inputs, self.weights) + self.biases
 
-        return self.outputs
+        return self
 
     def backward(self, dvalues: np.ndarray) -> np.ndarray:
         """
@@ -54,7 +54,7 @@ class NLayer(NeuralElement):
         # Gradient on values
         self.dinputs = np.dot(dvalues, self.weights.T)
 
-        return self.dinputs
+        return self
 
     def get_parameters(self, copy: bool = True):
         if copy:
