@@ -10,11 +10,19 @@ class NeuralElement:
     def set_parameters(self, params: dict):
         pass
 
-class Loss(NeuralElement):
+    def __gt__(self, other):
+        other.forward(self.outputs)
+        return other
+
+    def __rshift__(self, other):
+        other.backward(self.dinputs)
+        return other
+
+class Loss:
     pass
 
 class Model:
-    def __init__(self, elements: list(NeuralElement), loss: Loss):
+    def __init__(self, elements: list[NeuralElement], loss: Loss):
         self.elements = elements
         self.loss = loss
 
@@ -164,7 +172,7 @@ class Dataset:
         return len(self.inputs)
 
 class Tracker:
-    def __init__(self, every: int = 1):
+    def __init__(self, every: int = 1, print: bool=True):
         if every < 1:
             raise ValueError("every must be greater or equal to 1")
 
@@ -172,12 +180,14 @@ class Tracker:
         self.every = every
         self.calls = 0
 
+        self.print = print
+
     def log(self, data: dict):
+        self.calls += 1
+
         if self.calls % self.every == 0:
             for key, value in data.items():
                 self.data.setdefault(key, []).append(value)
-
-        self.calls += 1
 
     def clear(self):
         self.data = {}
@@ -188,7 +198,7 @@ class Tracker:
 
         return ", ".join([f"{key}: {value[-1]}" for key, value in self.data.items()])
 
-def _build_registry(base_cls: __subclasses__) -> dict:
+def _build_registry(base_cls) -> dict:
     registry = {}
 
     for sub in base_cls.__subclasses__():
