@@ -227,10 +227,39 @@ class Sigmoid(NeuralElement):
 
         return self
 
+class ELU(NeuralElement):
+    def __init__(self, alpha:float=1):
+        self.alpha = alpha
+
+    def forward(self, inputs: np.ndarray) -> np.ndarray:
+        self.inputs = inputs
+        self.outputs = self.alpha * np.expm1(np.minimum(inputs, 0.0))
+        # Minimum, ponieważ jeżeli policzymy ELU dla dużych dodatnich liczb, wartość może się przepełnić
+
+        self.outputs = np.where(inputs > 0, inputs, self.outputs)
+
+        return self
+
+    def backward(self, dvalues: np.ndarray) -> np.ndarray:
+        self.dinputs = dvalues * np.where(self.inputs > 0, 1.0,
+                                          self.alpha * np.exp(
+                                              np.minimum(self.inputs, 0.0)
+                                            )
+                                          )
+        return self
+    
+    def get_parameters(self, copy: bool = True) -> dict:
+        if copy:
+            return {"alpha": self.alpha.copy()}
+
+        return {"alpha": self.alpha}
+
+    def set_parameters(self, params: dict):
+        self.alpha = params["alpha"]
+
 """
 To add:
 0. PReLU
-1. ELU
 2. GELU
 3. SELU
 4. Linear
