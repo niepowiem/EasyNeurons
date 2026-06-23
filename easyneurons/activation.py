@@ -247,7 +247,7 @@ class ELU(NeuralElement):
                                             )
                                           )
         return self
-    
+
     def get_parameters(self, copy: bool = True) -> dict:
         if copy:
             return {"alpha": self.alpha.copy()}
@@ -257,9 +257,51 @@ class ELU(NeuralElement):
     def set_parameters(self, params: dict):
         self.alpha = params["alpha"]
 
+class PReLU(NeuralElement):
+    def __init__(self, alpha:float=0.01, multichannel:bool=False):
+        self.multichannel = multichannel
+        self.alpha = alpha
+
+    def forward(self, inputs: np.ndarray) -> np.ndarray:
+        self.inputs = inputs
+
+        if self.multichannel and not isinstance(self.alpha, np.ndarray):
+            self.alpha = self.alpha * np.ones(inputs.shape[1])
+
+        self.outputs = np.where(inputs < 0, self.alpha * inputs, inputs)
+
+        return self
+
+    def backward(self, dvalues: np.ndarray) -> np.ndarray:
+        self.dinputs = dvalues * np.where(self.inputs > 0, 1.0, self.alpha)
+        self.dalpha = dvalues * np.where(self.inputs > 0, 0.0, self.inputs)
+
+        if self.multichannel:
+            self.dalpha = np.sum(self.dalpha, axis=0)
+        else:
+            self.dalpha = np.sum(self.dalpha)
+
+        return self
+
+    def train_parameters(self) -> dict:
+        params = self.get_parameters(copy=False)
+        del params["multichannel"]
+        return params
+
+    def get_parameters(self, copy: bool = True) -> dict:
+        if copy:
+            return {"alpha": self.alpha.copy(), "multichannel": self.multichannel.copy()}
+
+        return {"alpha": self.alpha, "multichannel": self.multichannel}
+
+    def set_parameters(self, params: dict):
+        self.alpha = params["alpha"]
+        self.multichannel = params["multichannel"]
+
 """
 To add:
 0. PReLU
+1. ELU
 2. GELU
 3. SELU
 4. Linear
