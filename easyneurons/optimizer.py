@@ -8,10 +8,14 @@ from itertools import batched
 from tqdm import tqdm
 
 class Optimizer:
-    def get_parameters(self, copy=False):
-        return None
+    parameters: tuple[str, ...] = ()
+
+    def get_parameters(self) -> dict:
+        return {key: getattr(self, key) for key in self.parameters}
 
 class SGD(Optimizer):
+    parameters = ("epochs", "iterations", "learning_rate", "current_learning_rate", "decay", "momentum")
+
     def __init__(self, model: Model, learning_rate:float | int=1.0, decay:float | int=0., momentum:float | int=0.):
         self.model = model
 
@@ -24,31 +28,13 @@ class SGD(Optimizer):
         self.iterations = 0
         self.epochs = 0
 
-    def get_parameters(self, copy: bool = True):
-        if copy:
-            return {
-                "epochs": self.epochs.copy(),
-                "iterations": self.iterations.copy(),
-                "learning_rate": self.current_learning_rate.copy(),
-                "decay": self.decay.copy(),
-                "momentum": self.momentum.copy()
-            }
-
-        return {
-            "epochs": self.epochs,
-            "iterations": self.iterations,
-            "learning_rate": self.current_learning_rate,
-            "decay": self.decay,
-            "momentum": self.momentum
-        }
-
     def pre_update_parameters(self):
         if self.decay:
             # L/(1+d*x)
             self.current_learning_rate = self.learning_rate * (1 / (1 + self.epochs * self.decay))
 
     def update_parameters(self, element: NeuralElement):
-        parameters = element.get_parameters(copy=False)
+        parameters = element.get_trainable()
 
         if not parameters:
             return
@@ -102,7 +88,7 @@ class SGD(Optimizer):
                 self.iterations += 1
 
             if tracker:
-                tracker.log({"loss": local_loss / self.iterations} | self.get_parameters(copy=False))
+                tracker.log({"loss": local_loss / self.iterations} | self.get_parameters())
 
             if metrics:
                 metrics.calculate(force=False)
