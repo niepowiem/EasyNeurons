@@ -4,11 +4,18 @@ import numpy as np
 from datetime import datetime
 
 class NeuralElement:
-    def get_parameters(self, copy: bool = True) -> dict:
-        return None
+    parameters: tuple[str, ...] = ()
+    trainable: tuple[str, ...] = ()
+
+    def get_parameters(self) -> dict:
+        return {key: getattr(self, key) for key in self.parameters}
+
+    def get_trainable(self) -> dict:
+        return {key: getattr(self, key) for key in self.trainable}
 
     def set_parameters(self, params: dict):
-        pass
+        for key, value in params.items():
+            setattr(self, key, value)
 
     def __gt__(self, other):
         other.forward(self.outputs)
@@ -90,11 +97,11 @@ class Model:
 
         for element in self.elements:
             model_data["architecture"].append(element.__class__.__name__)
-            model_data["parameters"].append(element.get_parameters(False))
+            model_data["parameters"].append(element.get_parameters())
 
         if self.loss and save_loss:
             model_data["architecture"].append(self.loss.__class__.__name__)
-            model_data["parameters"].append(self.loss.get_parameters(False))
+            model_data["parameters"].append(self.loss.get_parameters())
 
         if not name:
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
