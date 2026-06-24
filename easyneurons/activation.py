@@ -130,6 +130,8 @@ class ReLU(NeuralElement):
         return self
 
 class LeakyReLU(NeuralElement):
+    parameters = ("alpha",)
+
     def __init__(self, alpha=0.01):
         self.alpha = alpha
 
@@ -158,15 +160,6 @@ class LeakyReLU(NeuralElement):
         self.dinputs[self.inputs <= 0] *= self.alpha
 
         return self
-
-    def get_parameters(self, copy: bool = True) -> dict:
-        if copy:
-            return {"alpha": self.alpha.copy()}
-
-        return {"alpha": self.alpha}
-
-    def set_parameters(self, params: dict):
-        self.alpha = params["alpha"]
 
 class Softmax(NeuralElement):
     """
@@ -228,6 +221,8 @@ class Sigmoid(NeuralElement):
         return self
 
 class ELU(NeuralElement):
+    parameters = ("alpha",)
+
     def __init__(self, alpha:float=1):
         self.alpha = alpha
 
@@ -248,16 +243,10 @@ class ELU(NeuralElement):
                                           )
         return self
 
-    def get_parameters(self, copy: bool = True) -> dict:
-        if copy:
-            return {"alpha": self.alpha.copy()}
-
-        return {"alpha": self.alpha}
-
-    def set_parameters(self, params: dict):
-        self.alpha = params["alpha"]
-
 class PReLU(NeuralElement):
+    parameters = ("alpha", "multichannel")
+    trainable = ("alpha",)
+
     def __init__(self, alpha:float=0.01, multichannel:bool=False):
         self.multichannel = multichannel
         self.alpha = alpha
@@ -282,21 +271,6 @@ class PReLU(NeuralElement):
             self.dalpha = np.sum(self.dalpha)
 
         return self
-
-    def train_parameters(self) -> dict:
-        params = self.get_parameters(copy=False)
-        del params["multichannel"]
-        return params
-
-    def get_parameters(self, copy: bool = True) -> dict:
-        if copy:
-            return {"alpha": self.alpha.copy(), "multichannel": self.multichannel.copy()}
-
-        return {"alpha": self.alpha, "multichannel": self.multichannel}
-
-    def set_parameters(self, params: dict):
-        self.alpha = params["alpha"]
-        self.multichannel = params["multichannel"]
 
 """
 To add:
