@@ -25,7 +25,7 @@ class NeuralElement:
         other.backward(self.dinputs)
         return other
 
-class Loss:
+class Loss(NeuralElement):
     pass
 
 class Model:
