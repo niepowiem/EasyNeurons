@@ -10,6 +10,9 @@ class NLayer(NeuralElement):
     Ta klasa to prosta warstwa neuronów. Wyjaśnienie: https://www.youtube.com/watch?v=W-tN-7qrv0k
     """
 
+    parameters = ("weights", "biases")
+    trainable = parameters
+
     def __init__(self, n_inputs, n_outputs, seed = None):
         """
         :param n_inputs: Number of inputs this layer in requesting
@@ -55,13 +58,3 @@ class NLayer(NeuralElement):
         self.dinputs = np.dot(dvalues, self.weights.T)
 
         return self
-
-    def get_parameters(self, copy: bool = True):
-        if copy:
-            return {"weights": self.weights.copy(), "biases": self.biases.copy()}
-
-        return {"weights": self.weights, "biases": self.biases}
-
-    def set_parameters(self, params: dict):
-        self.weights = params["weights"]
-        self.biases = params["biases"]
