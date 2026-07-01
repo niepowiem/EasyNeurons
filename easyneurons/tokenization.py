@@ -1,10 +1,13 @@
+import itertools
 import unicodedata
+import re
+import string
 
 class MappedString():
     def __init__(self, text: str):
+        self.text = text
         self.alignment = list(range(len(text)))
         self.original = text
-        self.text = text
 
     def __call__(self, start: int, end: int) -> tuple[int, int] | None:
         if end - 1 >= len(self.alignment) or end - 1 < 0:
@@ -26,7 +29,7 @@ class LowerCaseNormalization(Normalization):
     def normalize(self, mapped_string: MappedString) -> None:
         mapped_string.text = mapped_string.text.lower()
 
-class WhiteSpaceNormalization(Normalization):
+class WhitespaceNormalization(Normalization):
     def normalize(self, mapped_string: MappedString) -> None:
         if len(mapped_string.text) == 0:
             return
@@ -114,7 +117,7 @@ class ReplaceNormalization(Normalization):
         text = []
         alignment = []
         position = 0
-        
+
         while True:
             i = mapped_string.text.find(self.target, posposition)
             if i == -1:
@@ -141,3 +144,90 @@ class NormalizationSequence(Normalization):
     def normalize(self, mapped_string: MappedString) -> None:
         for normalizer in self.normalizers:
             normalizer.normalize(mapped_string)
+
+
+
+class MappedTokens():
+    def __init__(self, mapped_string: MappedString) -> None:
+        self.tokens = [mapped_string.text]
+        self.alignment = [mapped_string.alignment]
+        self.original = mapped_string.original
+
+class PreTokenizer():
+    def pre_tokenize(self, mapped_tokens: MappedTokens) -> None:
+        pass
+
+class RegexPreTokenizer(PreTokenizer):
+    # regexes:
+    #     "GPT2": r"""'s|'t|'re|'ve|'m|'ll|'d| ?\w+| ?[^\s\w]+|\s+"""
+
+    def __init__(self, regex: str, match: bool=True) -> None:
+        self.regex = regex
+        self.compiled = re.compile(regex)
+
+        self.match = match
+
+    def pre_tokenize(self, mapped_tokens: MappedTokens) -> None:
+        new_tokens = []
+        new_alignment = []
+
+        for token_text, token_alignment in zip(mapped_tokens.tokens, mapped_tokens.alignment):
+            position = 0
+
+            for match in self.compiled.finditer(token_text):
+                start, end = match.span()
+
+                if start > position:
+                    new_tokens.append(token_text[position:start])
+                    new_alignment.append(token_alignment[position:start])
+
+                if end > start and self.match:
+                    new_tokens.append(token_text[start:end])
+                    new_alignment.append(token_alignment[start:end])
+
+                position = end
+
+            if position < len(token_text):
+                new_tokens.append(token_text[position:])
+                new_alignment.append(token_alignment[position:])
+
+        mapped_tokens.tokens = new_tokens
+        mapped_tokens.alignment = new_alignment
+
+class WhitespacePreTokenizer(PreTokenizer):
+    def pre_tokenize(self, mapped_tokens: MappedTokens) -> None:
+        RegexPreTokenizer(r"\s+", match=False).pre_tokenize(mapped_tokens)
+
+class PunctuationPreTokenizer(PreTokenizer):
+    def pre_tokenize(self, mapped_tokens: MappedTokens) -> None:
+        RegexPreTokenizer(f"[{re.escape(string.punctuation)}]").pre_tokenize(mapped_tokens)
+
+class ByteLevelPreTokenizer(PreTokenizer):
+    def __init__(self):
+        printable = (list(range(33, 127)) + list(range(161, 173)) + list(range(174, 256)))
+        self.byte_to_char = {byte: chr(byte) for byte in printable}
+
+        next_code = 256
+        for byte in range(256):
+            if byte not in self.byte_to_char:
+                self.byte_to_char[byte] = chr(next_code)
+                next_code += 1
+
+    def pre_tokenize(self, mapped_tokens: MappedTokens) -> None:
+        for t_idx in range(len(mapped_tokens.tokens)):
+            token = mapped_tokens.tokens[t_idx]
+
+            char_alignment = []
+            for i, char in enumerate(token):
+                char_alignment.extend([i] * len(char.encode("utf-8")))
+
+            mapped_tokens.tokens[t_idx] = ''.join(self.byte_to_char[byte] for byte in token.encode("utf-8"))
+            mapped_tokens.alignment[t_idx] = [mapped_tokens.alignment[t_idx][i] for i in char_alignment]
+
+class PreTokenizerSequence(PreTokenizer):
+    def __init__(self, pre_tokenizers: list[PreTokenizer]) -> None:
+        self.pre_tokenizers = pre_tokenizers
+
+    def pre_tokenize(self, mapped_tokens: MappedTokens) -> None:
+        for pre_tokenizer in self.pre_tokenizers:
+            pre_tokenizer.pre_tokenize(mapped_tokens)
