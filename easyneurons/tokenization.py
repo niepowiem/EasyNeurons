@@ -231,3 +231,57 @@ class PreTokenizerSequence(PreTokenizer):
     def pre_tokenize(self, mapped_tokens: MappedTokens) -> None:
         for pre_tokenizer in self.pre_tokenizers:
             pre_tokenizer.pre_tokenize(mapped_tokens)
+
+
+
+class Vocabulary():
+    UNK_TOKEN = "[UNK]"
+    PAD_TOKEN = "[PAD]"
+    CLS_TOKEN = "[CLS]"
+    SEP_TOKEN = "[SEP]"
+    BOS_TOKEN = "<BOS>"
+    EOS_TOKEN = "<EOS>"
+
+    DEFAULT_SPECIAL_TOKENS = (UNK_TOKEN, PAD_TOKEN, CLS_TOKEN, SEP_TOKEN, BOS_TOKEN, EOS_TOKEN)
+
+    def __init__(self, special_tokens: list[str] = None):
+        self.token_to_id: dict[str, int] = {self.UNK_TOKEN: 0}
+        self.tokens: list = [self.UNK_TOKEN]
+
+        if special_tokens:
+            for token in special_tokens:
+                self.add(token)
+
+    def add(self, token: str) -> int:
+        id = len(self.tokens)
+
+        if token in self.token_to_id:
+            return self.token_to_id[token]
+
+        self.token_to_id[token] = id
+        self.tokens.append(token)
+
+        return id
+
+    def get(self, token: str | int) -> int | str | None:
+        if isinstance(token, str):
+            if token in self.token_to_id:
+                return self.token_to_id[token]
+
+            elif "[UNK]" in self.token_to_id:
+                return self.token_to_id["[UNK]"]
+
+            else:
+                return None
+
+        else:
+            return self.tokens[token]
+
+    def __len__(self) -> int:
+        return len(self.tokens)
+
+    def __contains__(self, token: str) -> bool:
+        return token in self.token_to_id
+
+class SubwordTokenizer():
+    pass
