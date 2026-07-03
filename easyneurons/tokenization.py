@@ -1,7 +1,9 @@
-import itertools
+import itertools as it
+from collections import Counter, defaultdict
 import unicodedata
 import re
 import string
+from tqdm import tqdm
 
 class MappedString():
     def __init__(self, text: str):
@@ -158,8 +160,7 @@ class PreTokenizer():
         pass
 
 class RegexPreTokenizer(PreTokenizer):
-    # regexes:
-    #     "GPT2": r"""'s|'t|'re|'ve|'m|'ll|'d| ?\w+| ?[^\s\w]+|\s+"""
+    GPT2 = r"""'s|'t|'re|'ve|'m|'ll|'d| ?\w+| ?[^\s\w]+|\s+"""
 
     def __init__(self, regex: str, match: bool=True) -> None:
         self.regex = regex
@@ -284,4 +285,131 @@ class Vocabulary():
         return token in self.token_to_id
 
 class SubwordTokenizer():
+   pass
+
+class BPE(SubwordTokenizer):
+    def __init__(self, vocabulary: Vocabulary = Vocabulary(special_tokens=Vocabulary.DEFAULT_SPECIAL_TOKENS),
+                 EOT: bool = False) -> None:
+        self.vocabulary: Vocabulary = vocabulary
+        if EOT:
+            self.EOT_CHAR = '▁'
+            self.vocabulary.add(self.EOT_CHAR)
+        else:
+            self.EOT_CHAR = ''
+
+        self.merges: list[tuple] = []
+
+    def train(self, mapped_tokens: MappedTokens, merges: int) -> None:
+        tokens: dict[tuple, int] = defaultdict(int)
+        chars: list = []
+
+        for token, count in Counter(mapped_tokens.tokens).most_common():
+            tokens[tuple(token + self.EOT_CHAR)] = count
+            chars.extend(token)
+
+        for char in set(chars):
+            self.vocabulary.add(char)
+
+        for _ in tqdm(range(merges)):
+            pairs: dict[tuple, int] = defaultdict(int)
+            for token, token_count in tokens.items():
+                for pair, pair_count in Counter(it.pairwise(token)).items():
+                    pairs[pair] += token_count * pair_count
+
+            if not pairs:
+                break
+
+            highest_count_pair = max(pairs.values())
+            best_pair = sorted([pair for pair, count in pairs.items() if count == highest_count_pair])[0]
+
+            self.merges.append(best_pair)
+
+            new_tokens: dict[tuple, int] = defaultdict(int)
+            for token, token_count in tokens.items():
+                word_pairs = list(it.pairwise(token))
+
+                if best_pair in word_pairs:
+                    new_token = []
+                    i = 0
+
+                    while i < len(token):
+                        if i < len(token) - 1 and token[i] == best_pair[0] and token[i + 1] == best_pair[1]:
+                            new_token.append(best_pair[0] + best_pair[1])
+                            i += 1
+                        else:
+                            new_token.append(token[i])
+                        i += 1
+
+                    new_tokens[tuple(new_token)] = token_count
+                else:
+                    new_tokens[token] = token_count
+            tokens = new_tokens
+
+            self.vocabulary.add(''.join(best_pair))
+
+    def _apply_merges(self, word: str) -> tuple:
+        symbols = tuple(word + self.EOT_CHAR)
+        for pair in self.merges:
+            new_symbols = []
+
+            i = 0
+            while i < len(symbols):
+                if i < len(symbols) - 1 and symbols[i] == pair[0] and symbols[i + 1] == pair[1]:
+                    new_symbols.append(pair[0] + pair[1])
+                    i += 1
+                else:
+                    new_symbols.append(symbols[i])
+
+                i += 1
+
+            symbols = tuple(new_symbols)
+
+        return symbols
+
+    def encode(self, mapped_tokens: MappedTokens) -> None:
+        tokens = []
+        alignments = []
+
+        token_idx = 0
+        while token_idx < len(mapped_tokens.tokens):
+            token = []
+            alignment = []
+
+            position = 0
+            for single_token in self._apply_merges(mapped_tokens.tokens[token_idx]):
+                token.append(self.vocabulary.get(single_token))
+                alignment.append(tuple(mapped_tokens.alignment[token_idx][position:position + len(single_token)]))
+
+                position += len(single_token)
+
+            tokens.append(tuple(token))
+            alignments.append(tuple(alignment))
+            token_idx += 1
+
+        mapped_tokens.tokens = tokens
+        mapped_tokens.alignment = alignments
+
+    def decode(self, mapped_tokens: MappedTokens) -> None:
+        token_idx = 0
+        while token_idx < len(mapped_tokens.tokens):
+            token_group = []
+            for token in mapped_tokens.tokens[token_idx]:
+                if isinstance(token, str):
+                    raise ValueError(f"Cannot decode {type(token)} to tokens")
+
+                token_group.append(self.vocabulary.get(token))
+
+            mapped_tokens.tokens[token_idx] = tuple(token_group)
+            token_idx += 1
+
+    def __len__(self) -> int:
+        return len(self.vocabulary)
+
+    def __contains__(self, token: str) -> bool:
+        return token in self.vocabulary
+
+class WordPiece(SubwordTokenizer):
+    pass
+
+class Unigram(SubwordTokenizer):
     pass
