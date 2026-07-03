@@ -4,6 +4,24 @@ import unicodedata
 import re
 import string
 from tqdm import tqdm
+import pickle
+from datetime import datetime
+import os
+
+# Pipeline:
+#
+#       str
+#        v
+#   Normalizaion
+#        v
+#   PreTokenizer
+#        v
+# Subword Tokenizer
+#        v
+#  Post Processing
+#        |
+#        v
+#    Embedding
 
 class MappedString():
     def __init__(self, text: str):
@@ -285,8 +303,6 @@ class Vocabulary():
         return token in self.token_to_id
 
 class SubwordTokenizer():
-    vocabulary: Vocabulary
-
     def train(self, mapped_tokens: MappedTokens) -> None:
         pass
 
@@ -296,21 +312,15 @@ class SubwordTokenizer():
     def decode(self, mapped_tokens: MappedTokens) -> None:
         pass
 
-    def __len__(self) -> int:
-        return len(self.vocabulary)
-
-    def __contains__(self, token: str) -> bool:
-        return token in self.vocabulary
-
 class BPE(SubwordTokenizer):
+    EOT_CHAR = ''
+
     def __init__(self, vocabulary: Vocabulary = Vocabulary(special_tokens=Vocabulary.DEFAULT_SPECIAL_TOKENS),
                  EOT: bool = False) -> None:
         self.vocabulary: Vocabulary = vocabulary
         if EOT:
             self.EOT_CHAR = '▁'
             self.vocabulary.add(self.EOT_CHAR)
-        else:
-            self.EOT_CHAR = ''
 
         self.merges: list[tuple] = []
 
@@ -422,11 +432,83 @@ class BPE(SubwordTokenizer):
 
         return decoded_tokens
 
+    def save(self, name: str = None, path: str = None) -> None:
+        tokenizer_data = {
+            'vocabulary': {
+                'UNK_TOKEN': self.vocabulary.UNK_TOKEN,
+                'PAD_TOKEN': self.vocabulary.PAD_TOKEN,
+                'CLS_TOKEN': self.vocabulary.CLS_TOKEN,
+                'SEP_TOKEN': self.vocabulary.SEP_TOKEN,
+                'BOS_TOKEN': self.vocabulary.BOS_TOKEN,
+                'EOS_TOKEN': self.vocabulary.EOS_TOKEN,
+
+                'token_to_id': self.vocabulary.token_to_id
+            },
+
+            'merges': self.merges,
+            'EOT_CHAR': self.EOT_CHAR
+        }
+
+        if not name:
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            name = f"bpe_{timestamp}"
+
+        if not path:
+            path = "tokenizers"
+
+        os.makedirs(path, exist_ok=True)
+        filepath = os.path.join(path, f"{name}.pkl")
+
+        with open(filepath, 'wb') as f:
+            pickle.dump(tokenizer_data, f)
+
+    @classmethod
+    def load(cls, name: str = None, path: str = 'tokenizers') -> BPE:
+        if not name:
+            raise ValueError("Tokenizer name not specified!")
+
+        filepath = os.path.join(path, f"{name}.pkl")
+        if not os.path.exists(filepath):
+            raise FileNotFoundError(f"File not found: {filepath}")
+
+        with open(filepath, 'rb') as f:
+            tokenizer_data = pickle.load(f)
+
+        unk_token = tokenizer_data['vocabulary']['UNK_TOKEN']
+        pad_token = tokenizer_data['vocabulary']['PAD_TOKEN']
+        cls_token = tokenizer_data['vocabulary']['CLS_TOKEN']
+        sep_token = tokenizer_data['vocabulary']['SEP_TOKEN']
+        bos_token = tokenizer_data['vocabulary']['BOS_TOKEN']
+        eos_token = tokenizer_data['vocabulary']['EOS_TOKEN']
+        token_to_id = tokenizer_data["vocabulary"]['token_to_id']
+
+        merges = tokenizer_data["merges"]
+        eot_char = tokenizer_data["EOT_CHAR"]
+
+        tokenizer = cls.__new__(cls)
+
+        vocabulary = Vocabulary.__new__(Vocabulary)
+        vocabulary.UNK_TOKEN = unk_token
+        vocabulary.PAD_TOKEN = pad_token
+        vocabulary.CLS_TOKEN = cls_token
+        vocabulary.SEP_TOKEN = sep_token
+        vocabulary.BOS_TOKEN = bos_token
+        vocabulary.EOS_TOKEN = eos_token
+        vocabulary.token_to_id = token_to_id
+        vocabulary.tokens = [token for token in token_to_id.keys()]
+
+        tokenizer.vocabulary = vocabulary
+        tokenizer.merges = merges
+        tokenizer.EOT_CHAR = eot_char
+
+        return tokenizer
+
 class WordPiece(SubwordTokenizer):
     pass
 
 class Unigram(SubwordTokenizer):
     pass
+
 
 
 class ProcessedTokens():
