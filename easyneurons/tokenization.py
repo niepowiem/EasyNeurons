@@ -285,7 +285,22 @@ class Vocabulary():
         return token in self.token_to_id
 
 class SubwordTokenizer():
-   pass
+    vocabulary: Vocabulary
+
+    def train(self, mapped_tokens: MappedTokens) -> None:
+        pass
+
+    def encode(self, mapped_tokens: MappedTokens) -> None:
+        pass
+
+    def decode(self, mapped_tokens: MappedTokens) -> None:
+        pass
+
+    def __len__(self) -> int:
+        return len(self.vocabulary)
+
+    def __contains__(self, token: str) -> bool:
+        return token in self.vocabulary
 
 class BPE(SubwordTokenizer):
     def __init__(self, vocabulary: Vocabulary = Vocabulary(special_tokens=Vocabulary.DEFAULT_SPECIAL_TOKENS),
@@ -310,7 +325,9 @@ class BPE(SubwordTokenizer):
         for char in set(chars):
             self.vocabulary.add(char)
 
-        for _ in tqdm(range(merges)):
+        progress_bar = tqdm(range(merges), desc="BPE(TBA)")
+
+        for _ in range(merges):
             pairs: dict[tuple, int] = defaultdict(int)
             for token, token_count in tokens.items():
                 for pair, pair_count in Counter(it.pairwise(token)).items():
@@ -322,6 +339,7 @@ class BPE(SubwordTokenizer):
             highest_count_pair = max(pairs.values())
             best_pair = sorted([pair for pair, count in pairs.items() if count == highest_count_pair])[0]
 
+            progress_bar.desc = f"BPE(best_pair: {best_pair}, {pairs[best_pair]})"
             self.merges.append(best_pair)
 
             new_tokens: dict[tuple, int] = defaultdict(int)
@@ -346,6 +364,11 @@ class BPE(SubwordTokenizer):
             tokens = new_tokens
 
             self.vocabulary.add(''.join(best_pair))
+
+            progress_bar.update(1)
+
+        progress_bar.desc = "BPE(DONE)"
+        progress_bar.close()
 
     def _apply_merges(self, word: str) -> tuple:
         symbols = tuple(word + self.EOT_CHAR)
@@ -389,27 +412,98 @@ class BPE(SubwordTokenizer):
         mapped_tokens.tokens = tokens
         mapped_tokens.alignment = alignments
 
-    def decode(self, mapped_tokens: MappedTokens) -> None:
-        token_idx = 0
-        while token_idx < len(mapped_tokens.tokens):
-            token_group = []
-            for token in mapped_tokens.tokens[token_idx]:
-                if isinstance(token, str):
-                    raise ValueError(f"Cannot decode {type(token)} to tokens")
+    def decode(self, list_of_tokens: list[int] | list[tuple[int]]) -> list[str]:
+        decoded_tokens = []
+        for token in (it.chain.from_iterable(list_of_tokens) if isinstance(list_of_tokens[0], tuple) else list_of_tokens):
+            if not isinstance(token, int):
+                raise ValueError(f"Cannot decode {type(token)} to tokens")
 
-                token_group.append(self.vocabulary.get(token))
+            decoded_tokens.append(self.vocabulary.get(token))
 
-            mapped_tokens.tokens[token_idx] = tuple(token_group)
-            token_idx += 1
-
-    def __len__(self) -> int:
-        return len(self.vocabulary)
-
-    def __contains__(self, token: str) -> bool:
-        return token in self.vocabulary
+        return decoded_tokens
 
 class WordPiece(SubwordTokenizer):
     pass
 
 class Unigram(SubwordTokenizer):
     pass
+
+
+class ProcessedTokens():
+    def __init__(self, mapped_tokens: MappedTokens) -> None:
+        self.tokens: list[list[int]] = list(it.chain.from_iterable(mapped_tokens.tokens))
+        self.attention_mask = [1] * len(self.tokens)
+
+class PostProcessor():
+    def process(self, processed_tokens: ProcessedTokens) -> None:
+        pass
+
+class TruncationPostProcessor(PostProcessor):
+    def __init__(self, length: int, strategy: str = 'right') -> None:
+        if strategy not in ('right', 'left'):
+            raise ValueError("Value of 'strategy' must be one of 'right', 'left'")
+
+        self.strategy = strategy
+        self.length = length
+
+    def process(self, processed_tokens: ProcessedTokens) -> None:
+        if self.strategy == 'right':
+            processed_tokens.tokens = processed_tokens.tokens[:self.length]
+            processed_tokens.attention_mask = processed_tokens.attention_mask[:self.length]
+
+        else:
+            position = max(len(processed_tokens.tokens) - self.length, 0)
+
+            processed_tokens.tokens = processed_tokens.tokens[position:]
+            processed_tokens.attention_mask = processed_tokens.attention_mask[position:]
+
+class SpecialTokensPostProcessor(PostProcessor):
+    def __init__(self, vocabulary: Vocabulary, template: list(str) = (Vocabulary.BOS_TOKEN, '$', Vocabulary.EOS_TOKEN)) -> None:
+        if not any(item.startswith("$") for item in template):
+            raise ValueError("template must include at least one '$'")
+
+        self.template = template
+        self.vocabulary = vocabulary
+
+    def process(self, processed_tokens: ProcessedTokens) -> None:
+        tokens = []
+        for instruction in self.template:
+            if instruction.startswith("$"):
+                tokens.extend(processed_tokens.tokens)
+
+            else:
+                tokens.append(self.vocabulary.get(instruction))
+
+                if instruction is not self.vocabulary.PAD_TOKEN:
+                    processed_tokens.attention_mask.append(1)
+
+                else:
+                    processed_tokens.attention_mask.append(0)
+
+        processed_tokens.tokens = tokens
+
+class PaddingPostProcessor(PostProcessor):
+    def __init__(self, vocabulary: Vocabulary, length: int, strategy: str = 'right') -> None:
+        if strategy not in ('right', 'left'):
+            raise ValueError("Value of 'strategy' must be one of 'right', 'left'")
+
+        self.strategy = strategy
+        self.length = length
+        self.vocabulary = vocabulary
+
+    def process(self, processed_tokens: ProcessedTokens) -> None:
+        if self.strategy == 'right':
+            processed_tokens.tokens.extend([self.vocabulary.get(Vocabulary.PAD_TOKEN)] * max(0, self.length - len(processed_tokens.tokens)))
+            processed_tokens.attention_mask.extend([0] * max(0, self.length - len(processed_tokens.attention_mask)))
+
+        else:
+            processed_tokens.tokens = [self.vocabulary.get(Vocabulary.PAD_TOKEN)] * max(0, self.length - len(processed_tokens.tokens)) + processed_tokens.tokens
+            processed_tokens.attention_mask = [0] * max(0, self.length - len(processed_tokens.attention_mask)) + processed_tokens.attention_mask
+
+class PostProcessorSequence(PostProcessor):
+    def __init__(self, post_processors: list[PostProcessor]) -> None:
+        self.post_processors = post_processors
+
+    def process(self, processed_tokens: ProcessedTokens) -> None:
+        for post_processor in self.post_processors:
+            post_processor.process(processed_tokens)
