@@ -163,6 +163,21 @@ class Dataset:
         self.shuffle = shuffle
         self.rng = np.random.default_rng(seed)
 
+        def split(self, split: float = 0.5) -> tuple[Dataset, Dataset]:
+        if split > 1 or split < 0:
+            raise ValueError("split must be between 0 and 1")
+
+        middle_position = math.ceil(self.len(self.inputs) * split)
+
+        return (Dataset(self.inputs[0:middle_position],
+                             self.answers[0:middle_position],
+                             batch_size=self.batch_size,
+                             shuffle=self.shuffle),
+                Dataset(self.inputs[middle_position:],
+                        self.answers[middle_position:],
+                        batch_size=self.batch_size,
+                        shuffle=self.shuffle))
+    
     def __iter__(self):
         n_samples = len(self.inputs)
         indices = self.rng.permutation(n_samples) if self.shuffle else np.arange(n_samples)
