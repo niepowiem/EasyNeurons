@@ -504,7 +504,102 @@ class BPE(SubwordTokenizer):
         return tokenizer
 
 class WordPiece(SubwordTokenizer):
-    pass
+    BOT_CHAR = ''
+
+    def __init__(self, vocabulary: Vocabulary = Vocabulary(special_tokens=Vocabulary.DEFAULT_SPECIAL_TOKENS),
+                 BOT: bool = False) -> None:
+        self.vocabulary: Vocabulary = vocabulary
+        if BOT:
+            self.BOT_CHAR = '▁'
+            self.vocabulary.add(self.BOT_CHAR)
+
+    def train(self, mapped_tokens: MappedTokens, merges: int) -> None:
+        tokens: dict[tuple, int] = defaultdict(int)
+        chars: list = []
+
+        for token, count in Counter(mapped_tokens.tokens).most_common():
+            p_token = tuple([self.BOT_CHAR + token[0], *token[1:]])
+            tokens[p_token] = count
+            chars.extend(p_token)
+
+        for char in set(chars):
+            self.vocabulary.add(char)
+
+        print(tokens)
+        print(self.vocabulary.tokens)
+
+        progress_bar = tqdm(range(merges), desc="WordPiece(TBA)")
+
+        for _ in range(merges):
+            occurances = defaultdict(int)
+            for token, count in tokens.items():
+                for symbol in token:
+                    occurances[symbol] += count
+
+            pairs: dict[tuple, float] = defaultdict(float)
+            for token, token_count in tokens.items():
+                for pair, pair_count in Counter(it.pairwise(token)).items():
+                    pairs[pair] += token_count * pair_count
+
+            for pair in pairs.keys():
+                pairs[pair] = pairs[pair] / (occurances[pair[0]] * occurances[pair[1]])
+
+            if not pairs:
+                break
+
+            highest_count_pair = max(pairs.values())
+            best_pair = sorted([pair for pair, count in pairs.items() if count == highest_count_pair])[0]
+
+            progress_bar.desc = f"WordPiece(best_pair: {best_pair}, {pairs[best_pair]})"
+
+            new_tokens: dict[tuple, int] = defaultdict(int)
+            for token, token_count in tokens.items():
+                word_pairs = list(it.pairwise(token))
+
+                if best_pair in word_pairs:
+                    new_token = []
+                    i = 0
+
+                    while i < len(token):
+                        if i < len(token) - 1 and token[i] == best_pair[0] and token[i + 1] == best_pair[1]:
+                            new_token.append(best_pair[0] + best_pair[1])
+                            i += 1
+                        else:
+                            new_token.append(token[i])
+                        i += 1
+
+                    new_tokens[tuple(new_token)] = token_count
+                else:
+                    new_tokens[token] = token_count
+            tokens = new_tokens
+
+            self.vocabulary.add(''.join(best_pair))
+
+            progress_bar.update(1)
+
+        self.__build_regex()
+
+        progress_bar.desc = "WordPiece(DONE)"
+        progress_bar.close()
+
+    def __build_regex(self):
+        tokens = sorted(self.vocabulary.token_to_id.keys(), key=lambda x: (-len(x), x))  # Length then lex order
+        escaped = [re.escape(token) for token in tokens]
+        self.regex = re.compile(f"{'|'.join(escaped)}")
+
+    def encode(self, mapped_tokens: MappedTokens) -> tuple:
+        token_idx = 0
+        while token_idx < len(mapped_tokens.tokens):
+            tokenized_tokens = list(self.regex.findall(self.BOT_CHAR + mapped_tokens.tokens[token_idx]))
+
+            tokenized_idx = 0
+            while tokenized_idx < len(tokenized_tokens):
+                tokenized_tokens[tokenized_idx] = self.vocabulary.token_to_id[tokenized_tokens[tokenized_idx]]
+
+                tokenized_idx += 1
+
+            mapped_tokens.tokens[token_idx] = tokenized_tokens
+            token_idx += 1
 
 class Unigram(SubwordTokenizer):
     pass
