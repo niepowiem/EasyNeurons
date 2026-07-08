@@ -587,19 +587,44 @@ class WordPiece(SubwordTokenizer):
         escaped = [re.escape(token) for token in tokens]
         self.regex = re.compile(f"{'|'.join(escaped)}")
 
-    def encode(self, mapped_tokens: MappedTokens) -> tuple:
+    def encode(self, mapped_tokens: MappedTokens) -> None:
         token_idx = 0
+
+        alignment: list[tuple[tuple]] = []
         while token_idx < len(mapped_tokens.tokens):
             tokenized_tokens = list(self.regex.findall(self.BOT_CHAR + mapped_tokens.tokens[token_idx]))
+            token_alignment = []
 
+            token_position = 0
             tokenized_idx = 0
-            while tokenized_idx < len(tokenized_tokens):
+
+            if self.BOT_CHAR != '':
+                piece_len = len(tokenized_tokens[tokenized_idx]) - len(self.BOT_CHAR)
+                token_alignment.append(
+                    tuple(mapped_tokens.alignment[token_idx][0:piece_len])
+                )
+
                 tokenized_tokens[tokenized_idx] = self.vocabulary.token_to_id[tokenized_tokens[tokenized_idx]]
 
+                token_position = piece_len
                 tokenized_idx += 1
 
+            while tokenized_idx < len(tokenized_tokens):
+                piece_len = len(tokenized_tokens[tokenized_idx])
+                token_alignment.append(
+                    tuple(mapped_tokens.alignment[token_idx][token_position:token_position + piece_len])
+                )
+
+                tokenized_tokens[tokenized_idx] = self.vocabulary.token_to_id[tokenized_tokens[tokenized_idx]]
+
+                token_position += piece_len
+                tokenized_idx += 1
+
+            alignment.append(tuple(token_alignment))
             mapped_tokens.tokens[token_idx] = tokenized_tokens
+
             token_idx += 1
+        mapped_tokens.alignment = alignment
 
 class Unigram(SubwordTokenizer):
     pass
