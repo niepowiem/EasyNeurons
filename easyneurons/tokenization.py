@@ -492,9 +492,9 @@ class SubwordTokenizer(ABC):
     def tokenize(self):
         pass
 
+    @abstractmethod
     def encode(self, batch_mapped_pre_tokens: BatchMappedPreTokens) -> BatchProcessTokens:
-        self.tokenize(batch_mapped_pre_tokens, encode=True)
-        return BatchProcessTokens(batch_mapped_pre_tokens)
+        pass
 
     def decode(self, batch_tokens: BatchMappedPreTokens | BatchProcessTokens) -> tuple[tuple[str] | str]:
         batch_decoded = []
@@ -794,6 +794,10 @@ class BPE(SubwordTokenizer):
             mapped_pre_tokens.pre_tokens = tokenized_tokens
             mapped_pre_tokens.alignment = tokenized_alignments
 
+    def encode(self, batch_mapped_pre_tokens: BatchMappedPreTokens, dropout: float = 0.0) -> BatchProcessTokens:
+        self.tokenize(batch_mapped_pre_tokens, encode=True, dropout=dropout)
+        return BatchProcessTokens(batch_mapped_pre_tokens)
+
     def save(self):
         pass
 
@@ -1018,7 +1022,7 @@ class WordPiece(SubwordTokenizer):
         self.trie = marisa_trie.Trie(self.vocabulary.tokens)
         self.cache.clear()
 
-    def tokenize(self, batch_mapped_pre_tokens: BatchMappedPreTokens, encode: bool=False) -> None:
+    def tokenize(self, batch_mapped_pre_tokens: BatchMappedPreTokens, encode: bool=False, dropout: float = 0.0) -> None:
         for mapped_pre_tokens in batch_mapped_pre_tokens:
             tokenized_tokens: list[tuple[str | int, ...]] = []
             tokenized_alignments: list[tuple[int, ...]] = []
@@ -1033,7 +1037,8 @@ class WordPiece(SubwordTokenizer):
                     continue
 
                 # Jeżeli token był już tokenizowany, po postu wyciągamy go z cache tysamym oszczędzając czas
-                chars = self.cache.get(single_token, None)
+                # Jeżeli dropout jest włączony wyłączamy cachowanie
+                chars = None if dropout > 0.0 else self.cache.get(single_token, None)
                 if chars is None:
 
                     # Inicjalizujemy listę
@@ -1060,7 +1065,7 @@ class WordPiece(SubwordTokenizer):
                     chars = tuple(chars)
 
                     # Dodajemy token do cache (Jeżeli nie dropoutujemy)
-                    if len(self.cache) < self.cache_limit:
+                    if len(self.cache) < self.cache_limit and dropout == 0.0:
                         self.cache[single_token] = chars
 
                 # Nie udało się pozyskać cache, robimy od nowa na piechotę
@@ -1094,6 +1099,10 @@ class WordPiece(SubwordTokenizer):
                 # Zapisujemy tokeny i aligment do obiektu
             mapped_pre_tokens.pre_tokens = tokenized_tokens
             mapped_pre_tokens.alignment = tokenized_alignments
+
+    def encode(self, batch_mapped_pre_tokens: BatchMappedPreTokens, dropout: float = 0.0) -> BatchProcessTokens:
+        self.tokenize(batch_mapped_pre_tokens, encode=True, dropout=dropout)
+        return BatchProcessTokens(batch_mapped_pre_tokens)
 
     def save(self):
         pass
