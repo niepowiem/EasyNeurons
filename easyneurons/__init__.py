@@ -6,3 +6,4 @@ from . import general
 from . import metrics
 from . import plugandplay
 from . import tokenization
+from . import embeddings
