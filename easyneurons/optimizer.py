@@ -128,7 +128,7 @@ class AdaGrad(Optimizer):
             element._cache = {key: np.zeros_like(value) for key, value in parameters.items()}
 
         for key, value in parameters.items():
-            element._cache[key] = getattr(element, f"d{key}") ** 2
+            element._cache[key] += getattr(element, f"d{key}") ** 2
             updates[key] = value - self.current_learning_rate * getattr(element, f"d{key}") / (np.sqrt(element._cache[key]) + self.epsilon)
 
         element.set_parameters(updates)
