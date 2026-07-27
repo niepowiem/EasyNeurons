@@ -43,6 +43,7 @@ class MappedString():
     def __repr__(self):
         return self.string
 
+
 class BatchMappedString():
     """
     This class allows for multiple MappedString.s to enter nomalization instead of manually adding the MappedString class using loops
@@ -63,6 +64,7 @@ class BatchMappedString():
     def __repr__(self):
         return str([mapped_string.string for mapped_string in self.mapped_strings])
 
+
 class Normalization(ABC):
     @abstractmethod
     def normalize(self, BatchMappedString) -> None:
@@ -71,6 +73,7 @@ class Normalization(ABC):
         :param BatchMappedString:
         :return:
         """
+
 
 class LowerCaseNormalization(Normalization):
     """
@@ -81,6 +84,7 @@ class LowerCaseNormalization(Normalization):
     def normalize(batch_mapped_string: BatchMappedString) -> None:
         for mapped_string in batch_mapped_string.mapped_strings:
             mapped_string.string = mapped_string.string.lower()
+
 
 class WhitespaceNormalization(Normalization):
     """
@@ -117,6 +121,7 @@ class WhitespaceNormalization(Normalization):
 
             mapped_string.string = "".join(chars)
             mapped_string.alignment = alignment
+
 
 class UnicodeNormalization(Normalization):
     """
@@ -159,6 +164,7 @@ class UnicodeNormalization(Normalization):
             mapped_string.string = n_text
             mapped_string.alignment = n_alignment
 
+
 class AccentsNormalization(Normalization):
     """
     Usuwa znaki diaktryczne / akcenty w literach takie jak: ą -> a, ó -> o, ś -> s... itp.
@@ -179,6 +185,7 @@ class AccentsNormalization(Normalization):
 
             mapped_string.string = ''.join(text)
             mapped_string.alignment = alignment
+
 
 class ReplaceNormalization(Normalization):
     """
@@ -218,6 +225,7 @@ class ReplaceNormalization(Normalization):
             mapped_string.string = "".join(text)
             mapped_string.alignment = alignment
 
+
 class NormalizationSequence(Normalization):
     """
     Pozwala połączyć wiele normalizatorów w sekwencji
@@ -231,7 +239,6 @@ class NormalizationSequence(Normalization):
             normalizer.normalize(batch_mapped_string)
 
         return BatchMappedPreTokens(batch_mapped_string)
-
 
 
 class MappedPreTokens():
@@ -250,6 +257,7 @@ class MappedPreTokens():
     def __repr__(self):
         return str(self.pre_tokens)
 
+
 class BatchMappedPreTokens():
     def __init__(self, batch_mapped_string: BatchMappedString) -> None:
         self.mapped_pre_tokens = [MappedPreTokens(mapped_string) for mapped_string in batch_mapped_string]
@@ -263,59 +271,61 @@ class BatchMappedPreTokens():
     def __repr__(self):
         return str([single_mapped_pre_tokens.pre_tokens for single_mapped_pre_tokens in self.mapped_pre_tokens])
 
+
 class PreTokenizer(ABC):
 
     @abstractmethod
     def pre_tokenize(self, batch_mapped_pre_tokens: BatchMappedPreTokens) -> None:
         pass
 
+
 class RegexPreTokenizer(PreTokenizer):
     GPT2 = "|".join([
-        r"'(?:[sdmt]|ll|ve|re)", # T-1, English contractions
-        r" ?\p{L}+", #  T-2, words
-        r" ?\p{N}+", # T-3, digits
-        r" ?[^\s\p{L}\p{N}]+", # T-4, not letters, digits, or whitespace
-        r"\s+(?!\S)", # T-5, all-but-last whitespace
-        r"\s+" # T-6, whitespace
+        r"'(?:[sdmt]|ll|ve|re)",  # T-1, English contractions
+        r" ?\p{L}+",  # T-2, words
+        r" ?\p{N}+",  # T-3, digits
+        r" ?[^\s\p{L}\p{N}]+",  # T-4, not letters, digits, or whitespace
+        r"\s+(?!\S)",  # T-5, all-but-last whitespace
+        r"\s+"  # T-6, whitespace
     ])
 
     GPT4 = "|".join([
-        r"'(?i:[sdmt]|ll|ve|re)", # F-1, English contractions
-        r"[^\r\n\p{L}\p{N}]?+\p{L}+", # F-2, words, w/ opt non-alphanumeric
-        r"\p{N}{1,3}", # F-3, digits
-        r" ?[^\s\p{L}\p{N}]++[\r\n]*", # F-4, not letters, digits, or whitespace
-        r"\s*[\r\n]", # F-5, whitespace with line-ending
-        r"\s+(?!\S)", # F-6, all-but-last whitespace
-        r"\s+" # F-7, all whitespace
+        r"'(?i:[sdmt]|ll|ve|re)",  # F-1, English contractions
+        r"[^\r\n\p{L}\p{N}]?+\p{L}+",  # F-2, words, w/ opt non-alphanumeric
+        r"\p{N}{1,3}",  # F-3, digits
+        r" ?[^\s\p{L}\p{N}]++[\r\n]*",  # F-4, not letters, digits, or whitespace
+        r"\s*[\r\n]",  # F-5, whitespace with line-ending
+        r"\s+(?!\S)",  # F-6, all-but-last whitespace
+        r"\s+"  # F-7, all whitespace
     ])
 
     GPT4o = "|".join([
         r"[^\r\n\p{L}\p{N}]?[\p{Lu}\p{Lt}\p{Lm}\p{Lo}\p{M}]*\
         [\p{Ll}\p{Lm}\p{Lo}\p{M}]+\
-        (?i:'s|'t|'re|'ve|'m|'ll|'d)?", # O-1 word with some lowercase
+        (?i:'s|'t|'re|'ve|'m|'ll|'d)?",  # O-1 word with some lowercase
         r"[^\r\n\p{L}\p{N}]?[\p{Lu}\p{Lt}\p{Lm}\p{Lo}\p{M}]+\
         [\p{Ll}\p{Lm}\p{Lo}\p{M}]*\
-        (?i:'s|'t|'re|'ve|'m|'ll|'d)?", # O-2 word with some uppercase
-        r"\p{N}{1,3}""", # O-3, digits
+        (?i:'s|'t|'re|'ve|'m|'ll|'d)?",  # O-2 word with some uppercase
+        r"\p{N}{1,3}""",  # O-3, digits
         r" ?[^\s\p{L}\p{N}]+[\r\n/]*",  # O-4, not letters, digits, or whitespace
-        r"\s*[\r\n]+", # O-5, whitespace with line-ending
-        r"\s+(?!\S)", # O-6, all-but-last whitespace
-        r"\s+", # O-7, all whitespace
+        r"\s*[\r\n]+",  # O-5, whitespace with line-ending
+        r"\s+(?!\S)",  # O-6, all-but-last whitespace
+        r"\s+",  # O-7, all whitespace
     ])
 
     # https://arxiv.org/pdf/2504.00178
     BOUNDLESS = "|".join([
         r" ?(?:\p{L}\p{M}*)+['\u2019](?:\p{L}\p{M}*)+",  # B-1, contraction
-        r"_(?:\p{Ll}\p{M}*)+", # B-2, snake_case
+        r"_(?:\p{Ll}\p{M}*)+",  # B-2, snake_case
         r" ?(?:\p{Lu}\p{M}*)+(?=(?:\p{Lu}\p{M}*)(?:\p{Ll}\p{M}*))",  # B-3, words
-        r" ?(?:\p{Lu}\p{M}*)?(?:\p{Ll}\p{M}*)+", # B-4, words
-        r" ?(?:\p{Lu}\p{M}*)+", # B-5, words
-        r" ?(?:[\p{Lt}\p{Lm}\p{Lo}]\p{M}*)+", # B-6, words
+        r" ?(?:\p{Lu}\p{M}*)?(?:\p{Ll}\p{M}*)+",  # B-4, words
+        r" ?(?:\p{Lu}\p{M}*)+",  # B-5, words
+        r" ?(?:[\p{Lt}\p{Lm}\p{Lo}]\p{M}*)+",  # B-6, words
         r"(?:\p{N}\p{M}*){1,3}(?=(?:(?:\p{N}\p{M}*){3})*(?:(?:\P{N}\p{M}*)|$))",  # B-7
-        r" ?(?:[\p{P}\p{S}]\p{M}*)+", # B-8, punct and symbols
-        r"[^\S\r\n]*[\n\r]+|[^\S\r\n]+", # B-9, whitespace
-        r"(?:[\p{Z}\p{C}]\p{M}*)+", # B-10, sep or control
-        r"\p{M}+" # B-11, leftover marks
+        r" ?(?:[\p{P}\p{S}]\p{M}*)+",  # B-8, punct and symbols
+        r"[^\S\r\n]*[\n\r]+|[^\S\r\n]+",  # B-9, whitespace
+        r"(?:[\p{Z}\p{C}]\p{M}*)+",  # B-10, sep or control
+        r"\p{M}+"  # B-11, leftover marks
     ])
 
     """
@@ -324,7 +334,7 @@ class RegexPreTokenizer(PreTokenizer):
     keep_matches = False usuwa znalezione char'y
     """
 
-    def __init__(self, regex: str = GPT2, keep_matches: bool=True) -> None:
+    def __init__(self, regex: str = GPT2, keep_matches: bool = True) -> None:
         self.regex = regex
         self.compiled = re.compile(regex)
         self.keep_matches = keep_matches
@@ -357,6 +367,7 @@ class RegexPreTokenizer(PreTokenizer):
             mapped_pre_tokens.pre_tokens = new_tokens
             mapped_pre_tokens.alignment = new_alignment
 
+
 class WhitespacePreTokenizer(PreTokenizer):
     """
     Dzieli tekst na pre tokeny po wykrytej spacji np. Lorem ipsum dolor sit amed -> ['Lorem', 'ipsum', 'dolor', 'sit', 'amed.']
@@ -366,6 +377,7 @@ class WhitespacePreTokenizer(PreTokenizer):
     def pre_tokenize(batch_mapped_pre_tokens: BatchMappedPreTokens) -> None:
         RegexPreTokenizer(r"\s+", keep_matches=False).pre_tokenize(batch_mapped_pre_tokens)
 
+
 class PunctuationPreTokenizer(PreTokenizer):
     """
     Dzieli tekst co wykryty znak punkcyjny np. Hugging Hug Hugged, Hugg Huggingface Face. -> ['Hugging Hug Hugged', ',', ' Hugg Huggingface Face', '.']
@@ -374,7 +386,8 @@ class PunctuationPreTokenizer(PreTokenizer):
     @staticmethod
     def pre_tokenize(batch_mapped_pre_tokens: BatchMappedPreTokens) -> None:
         RegexPreTokenizer(f"[{re.escape(string.punctuation)}]").pre_tokenize(batch_mapped_pre_tokens)
-        
+
+
 class ByteLevelPreTokenizer(PreTokenizer):
     """
     Zamienia znaki na UTF-8, i przekształca te bajty UTF-8 z powrotem na czytelne znaki tekstowe (znaki Unicode)
@@ -400,13 +413,14 @@ class ByteLevelPreTokenizer(PreTokenizer):
         for mapped_pre_tokens in batch_mapped_pre_tokens:
             for t_idx in range(len(mapped_pre_tokens.pre_tokens)):
                 token = mapped_pre_tokens.pre_tokens[t_idx]
-    
+
                 char_alignment = []
                 for i, char in enumerate(token):
                     char_alignment.extend([i] * len(char.encode("utf-8")))
-    
+
                 mapped_pre_tokens.pre_tokens[t_idx] = ''.join(self.byte_to_char[byte] for byte in token.encode("utf-8"))
                 mapped_pre_tokens.alignment[t_idx] = [mapped_pre_tokens.alignment[t_idx][i] for i in char_alignment]
+
 
 class PreTokenizerSequence(PreTokenizer):
     """
@@ -423,33 +437,30 @@ class PreTokenizerSequence(PreTokenizer):
             pre_tokenizer.pre_tokenize(batch_mapped_pre_tokens)
 
 
-
 class Vocabulary():
     """
     Zawiera zbiór wszystkich tokenów
     id to token i token to id
     """
-
+    
     # WAŻNE!!!
     # Unknown token ZAWSZE musi być w indeksie 0
-    special_tokens: dict[str, str] = {
-        "unk_token": "[UNK]",
-        "pad_token": "[PAD]",
-        "sep_token": "<SEP>",
-        "bos_token": "<BOS>",
-        "eos_token": "<EOS>",
-
-        # Optional
-        "mask_token": "[MASK]",
-        "cls_token": "[CLS]",
-    }
-
     def __init__(self, special_tokens: dict[str, str] = None) -> None:
         if special_tokens is None:
-            special_tokens = self.special_tokens
+            self.special_tokens: dict[str, str] = {
+                "unk_token": "[UNK]", 
+                "pad_token": "[PAD]",
+                "sep_token": "<SEP>",
+                "bos_token": "<BOS>",
+                "eos_token": "<EOS>",
+                                                
+                # Optional
+                "mask_token": "[MASK]",
+                "cls_token": "[CLS]",
+            }
 
         self.tokens = list(special_tokens.values())
-        self.token_to_id: dict[str, int] = { k: v for v, k in enumerate(self.tokens) }
+        self.token_to_id: dict[str, int] = {k: v for v, k in enumerate(self.tokens)}
 
     # Dodaje token i zwraca jego index, jeżeli token już istnieje w vocabulary to nie dodaje ale i tak zwraca index
     def add(self, token: str) -> int:
@@ -471,16 +482,58 @@ class Vocabulary():
             if token in self.token_to_id:
                 return self.token_to_id[token]
             else:
-                return 0 # Zwracamy token [UNK]
+                return 0  # Zwracamy token [UNK]
 
         else:
             return self.tokens[token]
+
+    def save(self, name: str = None, path: str = None) -> str:
+        vocabulary_data = {
+            "special_tokens": self.special_tokens,
+            "token_to_id": self.token_to_id,
+        }
+
+        if not name:
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            name = f"vocabulary_{timestamp}"
+
+        if not path:
+            path = "vocabularies"
+
+        os.makedirs(path, exist_ok=True)
+        filepath = os.path.join(path, f"{name}.pkl")
+
+        with open(filepath, 'wb') as f:
+            pickle.dump(vocabulary_data, f)
+            
+        return filepath
+
+    @classmethod
+    def load(cls, filename: str = None, path: str = 'vocabularies') -> Vocabulary:
+        if not filename:
+            raise ValueError("Vocabulary filename not specified!")
+
+        filepath = os.path.join(path, f"{filename}.pkl")
+        if not os.path.exists(filepath):
+            raise FileNotFoundError(f"File not found: {filepath}")
+
+        with open(filepath, 'rb') as f:
+            vocabulary_data = pickle.load(f)
+        
+        vocabulary = cls.__new__(cls)
+        
+        vocabulary.special_tokens = vocabulary_data["special_tokens"]
+        vocabulary.token_to_id = vocabulary_data["token_to_id"]
+        vocabulary.tokens = list(vocabulary.token_to_id.keys())
+        
+        return vocabulary
 
     def __len__(self) -> int:
         return len(self.tokens)
 
     def __contains__(self, token: str) -> bool:
         return token in self.token_to_id
+
 
 class SubwordTokenizer(ABC):
 
@@ -549,6 +602,7 @@ class SubwordTokenizer(ABC):
 
         return out
 
+
 # Rico Sennrich, Barry Haddow, and Alexandra Birch. 2016
 # https://arxiv.org/abs/1508.07909
 # Included Dropout
@@ -562,15 +616,16 @@ class BPE(SubwordTokenizer):
         self.merges: list[tuple[str, str]] = []
 
         # Ważność / priorytet przy tokenizacji
-        self.ranks: dict[tuple[str, str], int] = { }
+        self.ranks: dict[tuple[str, str], int] = {}
 
         # Przy tokenizacji, jeżeli program napotka słowo, które już wcześniej widziało,
         # wyciągnie go z cache od razu oszczędzając czas
-        self.cache: dict[str, tuple[tuple[str]]] = { }
+        self.cache: dict[str, tuple[tuple[str]]] = {}
         self.cache_limit: int = 1 << 20
 
     def train(self, batch_mapped_pre_tokens: BatchMappedPreTokens, merges: int | float = 0.35) -> None:
-        every_token = tuple(pre_tokens for mapped_pre_tokens in batch_mapped_pre_tokens for pre_tokens in mapped_pre_tokens.pre_tokens)
+        every_token = tuple(
+            pre_tokens for mapped_pre_tokens in batch_mapped_pre_tokens for pre_tokens in mapped_pre_tokens.pre_tokens)
 
         # Bierzemy wszystkie listy tokenów, ze wszystkich batch_mapped_pre_tokens i łączymy je w jedną listę i liczymy ilość słów
         initial_counts = Counter(every_token)
@@ -672,7 +727,6 @@ class BPE(SubwordTokenizer):
 
                     # Jeżeli coś się zmieniło (nie jest 0)
                     if delta:
-
                         # Odejmujemy lub dodajemy ilośc wystąpień pary w zależności od zmiany
                         pair_counts[pair] += delta
                         change_affected_pairs.add(pair)
@@ -718,7 +772,7 @@ class BPE(SubwordTokenizer):
 
     # Dropout = False przy inferencji
     # Dropout = True podczas treningu, typowo 0.05 - 0.1
-    def tokenize(self, batch_mapped_pre_tokens: BatchMappedPreTokens, encode: bool=False, dropout: float = 0.0) -> None:
+    def tokenize(self, batch_mapped_pre_tokens: BatchMappedPreTokens, encode: bool = False, dropout: float = 0.0) -> None:
         suffix = [self.end_of_token_suffix]
 
         for mapped_pre_tokens in batch_mapped_pre_tokens:
@@ -798,21 +852,72 @@ class BPE(SubwordTokenizer):
         self.tokenize(batch_mapped_pre_tokens, encode=True, dropout=dropout)
         return BatchProcessTokens(batch_mapped_pre_tokens)
 
-    def save(self):
-        pass
+    def save(self, name: str = None, path: str = None) -> str:
+        vocabulary_data = {
+            "special_tokens": self.vocabulary.special_tokens,
+            "token_to_id": self.vocabulary.token_to_id,
+        }
+        
+        subword_tokenizer_data = {
+            "vocabulary_data": vocabulary_data,
+            "merges": self.merges
+        }
 
-    def load(self):
-        pass
+        if not name:
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            name = f"bpe_{timestamp}"
+
+        if not path:
+            path = "subword_tokenizers"
+
+        os.makedirs(path, exist_ok=True)
+        filepath = os.path.join(path, f"{name}.pkl")
+
+        with open(filepath, 'wb') as f:
+            pickle.dump(subword_tokenizer_data, f)
+
+        return filepath
+
+    @classmethod
+    def load(cls, filename: str = None, path: str = 'subword_tokenizers') -> BPE:
+        if not filename:
+            raise ValueError("Subword Tokenizer filename not specified!")
+
+        filepath = os.path.join(path, f"{filename}.pkl")
+        if not os.path.exists(filepath):
+            raise FileNotFoundError(f"File not found: {filepath}")
+
+        with open(filepath, 'rb') as f:
+            subword_tokenizer_data = pickle.load(f)
+
+        vocabulary = Vocabulary.__new__(Vocabulary)
+        vocabulary.special_tokens = subword_tokenizer_data["vocabulary_data"]["special_tokens"]
+        vocabulary.token_to_id = subword_tokenizer_data["vocabulary_data"]["token_to_id"]
+        vocabulary.tokens = list(vocabulary.token_to_id.keys())
+
+        bpe = cls.__new__(cls)
+        bpe.vocabulary: Vocabulary = vocabulary
+        bpe.merges: list[tuple[str, str]] = subword_tokenizer_data["merges"]
+        bpe.ranks: dict[tuple[str, str], int] = {}
+        bpe._build_ranks()
+        
+        bpe.cache: dict[str, tuple[tuple[str]]] = { }
+        bpe.cache_limit: int = 1 << 20
+        
+        return bpe
+    
 
 # Craig W. Schmidt, Varshini Reddy & Chris Tanner 2025
 # https://arxiv.org/pdf/2504.00178
 class BoundlessBPE(SubwordTokenizer):
     pass
 
+
 # Alisa Liu, Jonathan Hayase, Valentin Hofmann, Sewoong Oh, Noah A. Smith︎, Yejin Choi 2025
 # https://arxiv.org/pdf/2503.13423
 class SuperBPE(SubwordTokenizer):
     pass
+
 
 # https://arxiv.org/pdf/2106.12672
 class WordPiece(SubwordTokenizer):
@@ -829,11 +934,12 @@ class WordPiece(SubwordTokenizer):
 
         # Przy tokenizacji, jeżeli program napotka słowo, które już wcześniej widziało,
         # wyciągnie go z cache od razu oszczędzając czas
-        self.cache: dict[str, tuple[tuple[str]]] = { }
+        self.cache: dict[str, tuple[tuple[str]]] = {}
         self.cache_limit: int = 1 << 20
 
     def train(self, batch_mapped_pre_tokens: BatchMappedPreTokens, merges: int | float = 0.35) -> None:
-        every_token = tuple(pre_tokens for mapped_pre_tokens in batch_mapped_pre_tokens for pre_tokens in mapped_pre_tokens.pre_tokens)
+        every_token = tuple(
+            pre_tokens for mapped_pre_tokens in batch_mapped_pre_tokens for pre_tokens in mapped_pre_tokens.pre_tokens)
 
         # Bierzemy wszystkie listy tokenów, ze wszystkich batch_mapped_pre_tokens i łączymy je w jedną listę i liczymy ilość słów
         initial_counts = Counter(every_token)
@@ -1022,7 +1128,7 @@ class WordPiece(SubwordTokenizer):
         self.trie = marisa_trie.Trie(self.vocabulary.tokens)
         self.cache.clear()
 
-    def tokenize(self, batch_mapped_pre_tokens: BatchMappedPreTokens, encode: bool=False, dropout: float = 0.0) -> None:
+    def tokenize(self, batch_mapped_pre_tokens: BatchMappedPreTokens, encode: bool = False, dropout: float = 0.0) -> None:
         for mapped_pre_tokens in batch_mapped_pre_tokens:
             tokenized_tokens: list[tuple[str | int, ...]] = []
             tokenized_alignments: list[tuple[int, ...]] = []
@@ -1084,7 +1190,8 @@ class WordPiece(SubwordTokenizer):
                     # Obliczamy odpowiendnio alignment
                     sub_token_span = len(sub_token)
                     if self.beggining_of_token_suffix in sub_token:
-                        sub_token_span -= len(self.beggining_of_token_suffix) * sub_token.count(self.beggining_of_token_suffix)
+                        sub_token_span -= len(self.beggining_of_token_suffix) * sub_token.count(
+                            self.beggining_of_token_suffix)
 
                     token_alignment.append(tuple(alignment[position:position + sub_token_span]))
                     position += sub_token_span
@@ -1104,19 +1211,67 @@ class WordPiece(SubwordTokenizer):
         self.tokenize(batch_mapped_pre_tokens, encode=True, dropout=dropout)
         return BatchProcessTokens(batch_mapped_pre_tokens)
 
-    def save(self):
-        pass
+    def save(self, name: str = None, path: str = None) -> str:
+        vocabulary_data = {
+            "special_tokens": self.vocabulary.special_tokens,
+            "token_to_id": self.vocabulary.token_to_id,
+        }
 
-    def load(self):
-        pass
+        subword_tokenizer_data = {
+            "vocabulary_data": vocabulary_data,
+            "max_input_chars_per_word": self.max_input_chars_per_word
+        }
+
+        if not name:
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            name = f"wordpiece_{timestamp}"
+
+        if not path:
+            path = "subword_tokenizers"
+
+        os.makedirs(path, exist_ok=True)
+        filepath = os.path.join(path, f"{name}.pkl")
+
+        with open(filepath, 'wb') as f:
+            pickle.dump(subword_tokenizer_data, f)
+
+        return filepath
+
+    @classmethod
+    def load(cls, filename: str = None, path: str = 'subword_tokenizers') -> WordPiece:
+        if not filename:
+            raise ValueError("Subword Tokenizer filename not specified!")
+
+        filepath = os.path.join(path, f"{filename}.pkl")
+        if not os.path.exists(filepath):
+            raise FileNotFoundError(f"File not found: {filepath}")
+
+        with open(filepath, 'rb') as f:
+            subword_tokenizer_data = pickle.load(f)
+
+        vocabulary = Vocabulary.__new__(Vocabulary)
+        vocabulary.special_tokens = subword_tokenizer_data["vocabulary_data"]["special_tokens"]
+        vocabulary.token_to_id = subword_tokenizer_data["vocabulary_data"]["token_to_id"]
+        vocabulary.tokens = list(vocabulary.token_to_id.keys())
+
+        wordpiece = cls.__new__(cls)
+        wordpiece.vocabulary: Vocabulary = vocabulary
+        wordpiece.max_input_chars_per_word: int = subword_tokenizer_data["max_input_chars_per_word"]
+        wordpiece._build_trie()
+
+        wordpiece.cache: dict[str, tuple[tuple[str]]] = {}
+        wordpiece.cache_limit: int = 1 << 20
+
+        return wordpiece
+
 
 # https://aclanthology.org/2021.emnlp-main.160.pdf
 class FastWordPiece(SubwordTokenizer):
     pass
 
+
 class Unigram(SubwordTokenizer):
     pass
-
 
 
 class ProcessTokens():
@@ -1133,6 +1288,7 @@ class ProcessTokens():
     def __len__(self) -> int:
         return len(self.tokens)
 
+
 class BatchProcessTokens():
     def __init__(self, batch_mapped_pre_tokens: BatchMappedPreTokens) -> None:
         self.process_tokens: list[ProcessTokens] = [ProcessTokens(mapped_pre_tokens) for mapped_pre_tokens in batch_mapped_pre_tokens]
@@ -1146,11 +1302,13 @@ class BatchProcessTokens():
     def __len__(self) -> int:
         return len(self.process_tokens)
 
+
 class PostProcessor(ABC):
 
     @abstractmethod
     def process(self, batch_process_tokens: BatchProcessTokens):
         pass
+
 
 class TruncationPostProcessor(PostProcessor):
     """
@@ -1179,13 +1337,14 @@ class TruncationPostProcessor(PostProcessor):
                 process_tokens.tokens = process_tokens.tokens[position:]
                 process_tokens.attention_mask = process_tokens.attention_mask[position:]
 
-class SpecialTokensPostProcessor(PostProcessor):
 
+class SpecialTokensPostProcessor(PostProcessor):
     """
     Dodaje template do tokenów np. mozna z tym wykonać: <|im_start|>system<|im_sep|>You are a helpful assistant<|im_end|><|im_start|>user<|im_sep|><|im_end|><|im_start|>assistant<|im_sep|>
     """
 
-    def __init__(self, vocabulary: Vocabulary, template: list(str) = (Vocabulary.special_tokens['bos_token'], '$', Vocabulary.special_tokens['eos_token'])) -> None:
+    def __init__(self, vocabulary: Vocabulary, template: list(str) = (Vocabulary.special_tokens['bos_token'], '$',
+                                                                      Vocabulary.special_tokens['eos_token'])) -> None:
         if not any(item.startswith("$") for item in template):
             raise ValueError("template must include at least one '$'")
 
@@ -1211,6 +1370,7 @@ class SpecialTokensPostProcessor(PostProcessor):
 
             process_tokens.tokens = tokens
 
+
 class PaddingPostProcessor(PostProcessor):
     """
     Dodaje pading aby wrównać do określonej długości
@@ -1227,13 +1387,19 @@ class PaddingPostProcessor(PostProcessor):
     def process(self, batch_process_tokens: BatchProcessTokens) -> None:
         if self.at == 'right':
             for process_tokens in batch_process_tokens:
-                process_tokens.tokens.extend([self.vocabulary.get(self.vocabulary.special_tokens['pad_token'])] * max(0, self.length - len(process_tokens.tokens)))
+                process_tokens.tokens.extend([self.vocabulary.get(self.vocabulary.special_tokens['pad_token'])] * max(0,
+                                                                                                                      self.length - len(
+                                                                                                                          process_tokens.tokens)))
                 process_tokens.attention_mask.extend([0] * max(0, self.length - len(process_tokens.attention_mask)))
 
         else:
             for process_tokens in batch_process_tokens:
-                process_tokens.tokens = [self.vocabulary.get(self.vocabulary.special_tokens['pad_token'])] * max(0, self.length - len(process_tokens.tokens)) + processed_tokens.tokens
-                process_tokens.attention_mask = [0] * max(0, self.length - len(process_tokens.attention_mask)) + processed_tokens.attention_mask
+                process_tokens.tokens = [self.vocabulary.get(self.vocabulary.special_tokens['pad_token'])] * max(0,
+                                                                                                                 self.length - len(
+                                                                                                                     process_tokens.tokens)) + processed_tokens.tokens
+                process_tokens.attention_mask = [0] * max(0, self.length - len(
+                    process_tokens.attention_mask)) + processed_tokens.attention_mask
+
 
 class PostProcessorSequence(PostProcessor):
     """
@@ -1248,31 +1414,33 @@ class PostProcessorSequence(PostProcessor):
             for process_tokens in batch_process_tokens:
                 post_processor.process(process_tokens)
 
+
 if __name__ == "__main__":
-    corpus = ["Lorem ipsum dolor sit amed.",
-              "Brown fox jumps over or the lazy dog.",
-              "Hugging Hug Hugged, Hugg Hug Huggingface Face.",
-              "𝓗𝓮𝓵𝓵𝓸 𝓦𝓸𝓻𝓵𝓭",
-              "怨ン縁",
-              "ゔみバ"]
-
-    ms = BatchMappedString(corpus)
-    mpt = NormalizationSequence(normalizers=[UnicodeNormalization()]).normalize(ms)
-    RegexPreTokenizer(RegexPreTokenizer.GPT2).pre_tokenize(mpt)
-    # PreTokenizerSequence(pre_tokenizers=[RegexPreTokenizer(), ByteLevelPreTokenizer()]).pre_tokenize(mpt)
-
-    subword_tokenizer = WordPiece()
-    subword_tokenizer.train(mpt, 66)
-
-    print(subword_tokenizer.vocabulary.tokens)
-    print(subword_tokenizer.trie)
-
-    subword_tokenizer.tokenize(mpt)
-
-    for mptt in mpt:
-        print(mptt.pre_tokens)
-        print(mptt.original)
-        print(mptt.alignment,'\n')
+    pass
+    # corpus = ["Lorem ipsum dolor sit amed.",
+    #           "Brown fox jumps over or the lazy dog.",
+    #           "Hugging Hug Hugged, Hugg Hug Huggingface Face.",
+    #           "𝓗𝓮𝓵𝓵𝓸 𝓦𝓸𝓻𝓵𝓭",
+    #           "怨ン縁",
+    #           "ゔみバ"]
+    #
+    # ms = BatchMappedString(corpus)
+    # mpt = NormalizationSequence(normalizers=[UnicodeNormalization()]).normalize(ms)
+    # RegexPreTokenizer(RegexPreTokenizer.GPT2).pre_tokenize(mpt)
+    # # PreTokenizerSequence(pre_tokenizers=[RegexPreTokenizer(), ByteLevelPreTokenizer()]).pre_tokenize(mpt)
+    #
+    # subword_tokenizer = WordPiece()
+    # subword_tokenizer.train(mpt, 66)
+    #
+    # print(subword_tokenizer.vocabulary.tokens)
+    # print(subword_tokenizer.trie)
+    #
+    # subword_tokenizer.tokenize(mpt)
+    #
+    # for mptt in mpt:
+    #     print(mptt.pre_tokens)
+    #     print(mptt.original)
+    #     print(mptt.alignment, '\n')
 
     # # subword_tokenizer.tokenize(mpt)
     # pt = subword_tokenizer.encode(mpt)
