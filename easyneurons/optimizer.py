@@ -171,3 +171,166 @@ class AdaGrad(Optimizer):
                 metrics.clear()
 
             self.post_update_parameters()
+
+class RMSProp(Optimizer):
+    parameters = ("epochs", "iterations", "learning_rate", "current_learning_rate", "decay", "epsilon", 'rho')
+
+    def __init__(self, model: Model, learning_rate: float | int = 1.0, decay: float | int = 0., epsilon: float = 1e-7, rho: float = 0.9):
+        self.model = model
+
+        self.learning_rate = learning_rate
+        self.current_learning_rate = learning_rate
+
+        self.decay = decay
+        self.epsilon = epsilon
+        self.rho = rho
+
+        self.iterations = 0
+        self.epochs = 0
+
+    def pre_update_parameters(self):
+        if self.decay:
+            # L/(1+d*x)
+            self.current_learning_rate = self.learning_rate * (1 / (1 + self.epochs * self.decay))
+
+    def update_parameters(self, element: NeuralElement):
+        parameters = element.get_trainable()
+
+        if not parameters:
+            return
+
+        updates = { }
+
+        if not hasattr(element, '_cache'):
+            element._cache = {key: np.zeros_like(value) for key, value in parameters.items()}
+
+        for key, value in parameters.items():
+            element._cache[key] = self.rho * element._cache[key] + (1 - self.rho) * getattr(element, f"d{key}") ** 2
+            updates[key] = value - self.current_learning_rate * getattr(element, f"d{key}") / (np.sqrt(element._cache[key]) + self.epsilon)
+
+        element.set_parameters(updates)
+
+    def post_update_parameters(self):
+        self.epochs += 1
+
+    def train(self, dataset: Dataset, epochs: int, tracker: Tracker = None, metrics: Metrics = None, callback=None):
+        for epoch in range(epochs):
+            self.pre_update_parameters()
+            self.iterations = 0
+
+            # Loss for tacker
+            local_loss = 0
+            for inputs, answers in dataset:
+                results = self.model.forward(inputs, answers)
+
+                self.model.backward()
+                for element in self.model.elements:
+                    self.update_parameters(element)
+
+                local_loss += results["loss"]
+
+                if metrics:
+                    metrics.add(results["output"], answers)
+
+                if callback:
+                    callback({
+                        "results": results,
+                        "answers": answers
+                    })
+
+                self.iterations += 1
+
+            if tracker:
+                tracker.log({"loss": local_loss / self.iterations} | self.get_parameters())
+
+            if metrics:
+                metrics.calculate(force=False)
+                metrics.clear()
+
+            self.post_update_parameters()
+
+class Adam(Optimizer):
+    parameters = ("epochs", "iterations", "learning_rate", "current_learning_rate", "decay", "epsilon", 'rho')
+
+    def __init__(self, model: Model, learning_rate: float | int = 1.0, decay: float | int = 0., epsilon: float = 1e-7, beta_1: float = 0.9, beta_2: float = 0.999):
+        self.model = model
+
+        self.learning_rate = learning_rate
+        self.current_learning_rate = learning_rate
+
+        self.decay = decay
+        self.epsilon = epsilon
+        self.beta_1 = beta_1
+        self.beta_2 = beta_2
+
+        self.iterations = 0
+        self.epochs = 0
+
+    def pre_update_parameters(self):
+        if self.decay:
+            # L/(1+d*x)
+            self.current_learning_rate = self.learning_rate * (1 / (1 + self.epochs * self.decay))
+
+    def update_parameters(self, element: NeuralElement):
+        parameters = element.get_trainable()
+
+        if not parameters:
+            return
+
+        updates = { }
+
+        if not hasattr(element, '_cache'):
+            element._cache = {key: np.zeros_like(value) for key, value in parameters.items()}
+
+        if not hasattr(element, '_momentums'):
+            element._momentums = {key: np.zeros_like(value) for key, value in parameters.items()}
+
+        for key, value in parameters.items():
+            element._momentums[key] = self.beta_1 * element._momentums[key] + (1 - self.beta_1) * getattr(element, f"d{key}")
+            momentums_corrected = element._momentums[key] / (1 - self.beta_1 ** (self.iterations + 1))
+
+            element._cache[key] = self.beta_2 * element._cache[key] + (1 - self.beta_2) * getattr(element, f"d{key}") ** 2
+            cache_corrected = element._cache[key] / (1 - self.beta_2 ** (self.iterations + 1))
+
+            updates[key] = value - self.current_learning_rate * momenums_corrected / (np.sqrt(cache_corrected) + self.epsilon)
+
+        element.set_parameters(updates)
+
+    def post_update_parameters(self):
+        self.epochs += 1
+
+    def train(self, dataset: Dataset, epochs: int, tracker: Tracker = None, metrics: Metrics = None, callback=None):
+        for epoch in range(epochs):
+            self.pre_update_parameters()
+            self.iterations = 0
+
+            # Loss for tacker
+            local_loss = 0
+            for inputs, answers in dataset:
+                results = self.model.forward(inputs, answers)
+
+                self.model.backward()
+                for element in self.model.elements:
+                    self.update_parameters(element)
+
+                local_loss += results["loss"]
+
+                if metrics:
+                    metrics.add(results["output"], answers)
+
+                if callback:
+                    callback({
+                        "results": results,
+                        "answers": answers
+                    })
+
+                self.iterations += 1
+
+            if tracker:
+                tracker.log({"loss": local_loss / self.iterations} | self.get_parameters())
+
+            if metrics:
+                metrics.calculate(force=False)
+                metrics.clear()
+
+            self.post_update_parameters()
