@@ -117,12 +117,12 @@ class Model:
             pickle.dump(model_data, f)
 
     @classmethod
-    def load(cls, name: str = None, path: str = 'models'):
+    def load(cls, filename: str = None, path: str = 'models'):
 
-        if not name:
-            raise ValueError("Model name not specified!")
+        if not filename:
+            raise ValueError("Model filename not specified!")
 
-        filepath = os.path.join(path, f"{name}.pkl")
+        filepath = os.path.join(path, f"{filename}.pkl")
         if not os.path.exists(filepath):
             raise FileNotFoundError(f"File not found: {filepath}")
 
@@ -163,16 +163,16 @@ class Dataset:
         self.shuffle = shuffle
         self.rng = np.random.default_rng(seed)
 
-        def split(self, split: float = 0.5) -> tuple[Dataset, Dataset]:
+    def split(self, split: float = 0.5) -> tuple[Dataset, Dataset]:
         if split > 1 or split < 0:
             raise ValueError("split must be between 0 and 1")
 
         middle_position = math.ceil(self.len(self.inputs) * split)
 
         return (Dataset(self.inputs[0:middle_position],
-                             self.answers[0:middle_position],
-                             batch_size=self.batch_size,
-                             shuffle=self.shuffle),
+                            self.answers[0:middle_position],
+                            batch_size=self.batch_size,
+                            shuffle=self.shuffle),
                 Dataset(self.inputs[middle_position:],
                         self.answers[middle_position:],
                         batch_size=self.batch_size,
