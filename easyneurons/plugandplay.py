@@ -8,6 +8,7 @@ from easyneurons.layer import NLayer
 from easyneurons.activation import ReLU, Softmax
 from easyneurons.loss import CategoricalCrossEntropy
 from easyneurons.optimizer import *
+from easyneurons.tokenization import *
 
 class ClassificationModel:
     def __init__(self, inputs:np.ndarray, answers:np.ndarray, size: str='medium'):
@@ -86,4 +87,3 @@ class ClassificationModel:
         
     def predict(self, inputs: np.array) -> np.ndarray:
         return self.model.inference(inputs=inputs)
-        
