@@ -272,20 +272,81 @@ class PReLU(NeuralElement):
 
         return self
 
+class Tanh(NeuralElement):
+    def forward(self, inputs: np.ndarray) -> np.ndarray:
+        self.inputs = inputs
+
+        self.outputs = np.tanh(inputs)
+        return self
+
+    def backward(self, dvalues: np.ndarray) -> np.ndarray:
+        self.dinputs = dvalues * (1 - self.outputs ** 2)
+        return self
+
+class Sin(NeuralElement):
+    def forward(self, inputs: np.ndarray) -> np.ndarray:
+        self.inputs = inputs
+
+        self.outputs = np.sin(inputs)
+        return self
+
+    def backward(self, dvalues: np.ndarray) -> np.ndarray:
+        self.dinputs = dvalues * np.cos(self.inputs)
+
+class Identity(NeuralElement):
+    def forward(self, inputs: np.ndarray) -> np.ndarray:
+        self.inputs = inputs
+        self.outputs = inputs
+        return self
+
+    def backward(self, dvalues: np.ndarray) -> np.ndarray:
+        self.dinputs = dvalues.copy()
+        return self
+
+class Softplus(NeuralElement):
+    parameters = ("beta",)
+
+    def __init__(self, beta:float=1):
+        self.beta = beta
+
+    def forward(self, inputs: np.ndarray) -> np.ndarray:
+        self.inputs = inputs
+
+        self.outputs = (1 / self.beta) * np.log(1 + np.exp(self.beta * inputs))
+        return self
+
+    def backward(self, dvalues: np.ndarray) -> np.ndarray:
+        self.dinputs = dvalues * (1 / (1 + np.exp(-self.beta * self.inputs)))
+        return self
+
+class Mish(NeuralElement):
+    def forward(self, inputs: np.ndarray) -> np.ndarray:
+        self.inputs = inputs
+        self.outputs = inputs * np.tanh(np.log(1 + np.exp(self.inputs)))
+        return self
+
+    def backward(self, dvalues: np.ndarray) -> np.ndarray:
+        exp = np.exp(self.inputs)
+        omega = exp * (4 * (self.inputs + 1) + 4 * np.exp(2 * self.inputs) + np.exp(3 * self.inputs) + exp * (4 * self.inputs + 6))
+        delta = 1 + exp
+
+        self.dinputs = dvalues * (omega / (delta ** 2 + 1) ** 2)
+        return self
+
 """
 To add:
-0. PReLU
-1. ELU
+0. PReLU V
+1. ELU V
 2. GELU
 3. SELU
-4. Linear
+4. Identity V
 5. Binary
 6. Swish
-7. Mish
-8. Sin
-9. Tanh
+7. Mish V
+8. Sin V
+9. Tanh V
 10. Softsign
-11. Softplus
+11. Softplus V
 12. Snake
 13. GLU
 14. ReLUClip
