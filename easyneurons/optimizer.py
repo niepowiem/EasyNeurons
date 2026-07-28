@@ -265,6 +265,7 @@ class Muon(Optimizer):
             # Muon może operować tylko na macierzach, w innym przypadku stosuje się inny optymalizator
             is_matrix = np.ndim(value) == 2 and min(np.shape(value)) > 1
             if is_matrix:
+                momentum = (1 - self.momentum) * gradient + self.momentum * momentum if self.nestrov else momentum
                 updates[key] = value - self.current_learning_rate * self._get_scale(*value.shape) * self._newton_schulz_iteration(G=momentum)
 
             else:
