@@ -333,6 +333,24 @@ class Mish(NeuralElement):
         self.dinputs = dvalues * (omega / (delta ** 2 + 1) ** 2)
         return self
 
+class ReLUClip(NeuralElement):
+    parameters = ("clip",)
+
+    def __init__(self, clip:float= 8.):
+        self.clip = clip
+
+    def forward(self, inputs: np.ndarray) -> np.ndarray:
+        self.inputs = inputs
+        self.outputs = np.clip(inputs, 0, self.clip)
+        return self
+
+    def backward(self, dvalues: np.ndarray) -> np.ndarray:
+        self.dinputs = dvalues.copy()
+        self.dinputs[self.inputs <= 0] = 0
+        self.dinputs[self.inputs >= self.clip] = 0
+
+        return self
+
 """
 To add:
 0. PReLU V
@@ -349,7 +367,7 @@ To add:
 11. Softplus V
 12. Snake
 13. GLU
-14. ReLUClip
+14. ReLUClip V
 15. HardSigmoid
 16. HardSwish
 17. HardTanh
