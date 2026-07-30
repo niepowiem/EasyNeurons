@@ -1,7 +1,8 @@
 import random
 
 import numpy as np
-from easyneurons.layer import RandomInitialization
+from easyneurons.general import Tracker
+from easyneurons.initializers import RandomInitialization
 from pyparsing import srange
 from collections import defaultdict
 from pympler import asizeof
@@ -10,6 +11,7 @@ import struct
 from pathlib import Path
 import heapq
 import tqdm as tqdm
+from easyneurons.general import Tracker
 
 RECORD_DTYPE = np.dtype([("i", "<i4"), ("j", "<i4"), ("value", "<f8")])
 RECORD_SIZE = RECORD_DTYPE.itemsize
@@ -432,20 +434,187 @@ class CoOccurrenceMatrix:
                            x.tolist())
 
 class GloVe:
-    def __init__(self, co_occurrence_matrix,
+    def __init__(self, co_occurrence_matrix: CoOccurrenceMatrix,
                  vocabulary_size: int,
-                 d_model: int = 50,
+                 d_model: int = 100,
                  occurrence_weight_max: int = 100,
                  alpha: float = 0.75,
                  max_batch_bytes:int = 256 * 1024 * 1024,
                  seed: int = None):
+
+        # wytrenowana co_occurrence_matrix
         self.co_occurrence_matrix = co_occurrence_matrix
+
+        # Liczba unikalnych tokenów z subword-tokenizer
+        # Wymiar wektora embedingu, czyli ile liczb reprezetuje każde słowo
+        # Bo GloVe.weights to (vocabulary_size, d_model)
         self.vocabulary_size = vocabulary_size
         self.d_model = d_model
+
+        # Powyżej tej liczby współwystąpień, waga pary przestaje rosnąć
+        # (zapobiega dominacji bardzo częstych par, jak "the", "of", itp.)
+        # Limit pamięci na pojedynczy batch podczas treningu
+        # Kontroluje ile danych z macierzy współwystąpień wczytywać naraz do pamięci przy treningu
         self.occurrence_weight_max = occurrence_weight_max
-        self.alpha = alpha
         self.max_batch_bytes = max_batch_bytes
+
+        # Kontroluje jak szybko rośnie waga dla par poniżej occurrence_weight_max
+        self.alpha = alpha
         self.seed = seed
+
+        # Skalujemy początkowe wartości
+        # Bez tego iloczyn skalarny dwóch losowych wektorów rośnie jak sqrt(s_model)
+        # Pierwsze predykcjie byłyby ekstremalne, co zabiłoby krok uczenia
+        bounds = 0.5 / d_model
+        self.weights = (RandomInitialization(mode="uniform", multiplier=1, alpha=bounds, seed=seed)
+                        .initialize(vocabulary_size, d_model))
+        self.weights_context = (RandomInitialization(mode="uniform", multiplier=1, alpha=bounds, seed=seed)
+                        .initialize(vocabulary_size, d_model))
+
+        # Inicjalizacja biasów
+        self.bias = np.zeros(vocabulary_size)
+        self.bias_context = np.zeros(vocabulary_size)
+
+        # Sumy kwadratów gradientów
+        self.g_weights = np.ones_like(self.weights)
+        self.g_weights_context = np.ones_like(self.weights_context)
+        self.g_bias = np.ones_like(self.bias)
+        self.g_bias_context = np.ones_like(self.bias_context)
+
+        self.iterations = 0
+
+    def train(self, epochs: int = 20,
+              learning_rate: float = 0.05,
+              batch_size: int = None,
+              tracker: Tracker = None):
+
+        if self.co_occurrence_matrix.path is None:
+            raise ValueError("COM needs to be calculated and shuffled")
+        if self.co_occurrence_matrix.shuffled_com_path is None:
+            raise ValueError("COM needs to be shuffled")
+
+        if batch_size is None:
+            raise ValueError("batch_size cannot be None")
+
+        # Inicjalizacja generatora losowego
+        rng = np.random.default_rng(self.seed)
+
+        for epoch in range(epochs):
+            total_loss, total_pairs = 0.0, 0
+
+            # Trenujemy w batchach
+            for batch_i, batch_j, batch_value in self.co_occurrence_matrix.read_batches(batch_size):
+                loss, count = self.partial_train(batch_i, batch_j, batch_value, learning_rate)
+                total_loss += loss
+                total_pairs += 1
+
+            # logujemy dane do trackera, jeżeli taki wskazaliśmy
+            if tracker:
+                tracker.log({"epoch": epoch, "loss": total_loss / total_pairs})
+
+    def _occurrence_weight(self, value):
+        # Decyduje jak bardzo dana para tokenów powinna wpłynąć na funkcję straty,
+        # w zależności od tego jak często współwystąpiła
+        return np.where(x < self.occurrence_weight_max, (value / self.occurrence_weight_max) ** self.alpha, 1.0)
+
+    def _partial_train(self, i, j, value, learning_rate: float=0.05):
+        # Konwertujemy na tablice tunpy o określonych typach
+        i = np.asarray(i, np.int64)
+        j = np.asarray(j, np.int64)
+        value = np.asarray(value, np.float64)
+
+        # Przepuszczamy wartości przez logarytm, ponieważ model będzie chciał przewidywać liczbę ich wystąpień
+        # Jeżeli jakaś z par pojawia się bardzo często np 50_000, a drugia np. 2 razy, to jeżeli model w
+        # Predykcjach pomyły się o np. 1_000 razy dla pierwszej pary i 1 dla drugiej to zamiast naprawić tą drugą parę
+        # To uparłby się na naprawianie tej pierwszej pary, ponieważ tam brakuje 1_000.
+        # Dlatego zamiast kazać modelowi dopaować się do wartości value, każemu mu dopasować się do log wartości
+        # Która jest o wiele ściśnięta, która penalizuje za małe błędy i niegleguje duże np.
+        #   Value   log(Value)
+        #   1       0.00
+        #   8       2.08
+        #   50      3.91
+        #   500     6.21
+        #   50_000  10.82
+        # Obliczamy wagę dla każdej z par
+        log_occurrences = np.log(value)
+        occurrence_weight = self._occurrence_weight(value)
+
+        weight_i = self.weights[i]
+        weight_j = self.weights[j]
+
+        # Generujemy przewidywania modelu kożystając z einsum, który liczy iloczyn skalarny per wiersz
+        # dla każdej pary sumuje w_i[k] * w_j[k] po wymiarze d_model, dając w wyniku wektor o długości batch_size
+        # Pełny wzór to: w_i * w_j + b_i + b_j
+        prediction = (np.einsum("ij,ij->i", weight_i, weight_j)) + self.bias[i] + self.bias_context[j]
+
+        # Obliczamy, o ile model się pomylił
+        # Obliczamy stratę, sumę ważoną błędu kwadratowego dla całego batcha
+        difference = prediction - log_occurrences
+        loss = float(np.sum(occurrence_weight * difference * difference))
+
+        # Obliczamy pochodną straty
+        # 2 * f(xij) * (prediction - log(xij)) * w_j
+        gradient_scalar = 2.0 * occurrence_weight * difference
+        derrivetive = gradient_scalar[:, None]
+
+        # Obliczamy gradient (tak jak w backward)
+        # Tutaj dvalues to w_i i w_j
+        gradient_weight_i = derrivetive * weight_j
+        gradient_weight_j = derrivetive * weight_i
+
+        # Rrzygotowujemy się do
+        for index, gradient_rows, weights, g_weights, biases, g_biases in (
+                (i, gradient_weight_i, self.weights, self.g_weights, self.bias, self.g_biases),
+                (j, gradient_weight_j, self.weights_context, self.g_weights_context, self.bias_context, self.g_biases_context)
+        ):
+            # Funkcja sumuje wiele gradientów tej samej pary, żeby móc zaktualizować tylko raz
+            (unique, sum_rows, sum_rows_squared, sum_scalar, sum_scalar_squared) = self._group_by_index(index, gradient_rows, gradient_scalar)
+
+            # Aktualizujemy parametry
+            g_weights[unique] += sum_rows_squared
+            weights[unique] -= learning_rate * sum_rows / np.sqrt(g_weights[unique])
+
+            g_biases[unique] += sum_scalar_squared
+            biases[unique] -= learning_rate * sum_scalar / np.sqrt(g_biases[unique])
+
+        self.iterations += 1
+        return loss, len(i)
+
+    @staticmethod
+    def _group_by_index(index, gradient_rows, gradient_scalar):
+        # Znajdujemy unikalne indeksy, czyli listę róznych słów, które wystąpiły w batchu, bez powtórzeń
+        # Unique to posortowana lista róznych wartości w index, bez powtórzeń
+        # Inverse dla każdego elementu index, mówie na której pozycji w unique się on znajduje
+        unique, inverse = np.unique(index, return_inverse=True)
+        n_unique = len(unique)
+
+        # Wybliczam d_model
+        d_model = gradient_rows.shape[1]
+
+        # Ponieważ bindount umie sumować tylko skalary, a nie wektory
+        # Spłaszczamy macierz (n_unique, d_model) do jednowymiarowej listy wartości, z których każda odpowiada
+        # jednej konretnej wspójrzędnej wektora dla jednej konkretnej grupy
+        flat = (inverse[:,None] * d_model + np.arange(d_model)).ravel()
+
+        # Sumujemy wszystkie wartości wag, które są na tej samej pozycji - mają ten sam numer we flat
+        # np.
+        #   0.: 0.10 + 0.30 + (-0.05) = 0.35
+        #   1.: 0.01 + 0.02 + 0.00 = 0.03
+        #   2.: 0.20
+        #   3.: 0.03
+        #
+        # Następnie reshapujemy, czyli składamy to z powrotem w macierz
+        sum_rows = np.bincount(flat, weights=gradient_rows.ravel(), minlength=n_unique * d_model).reshape(n_unique, d_model)
+
+        # To samo dla sumy kwadratów, tylko zamiast sumować same gradienty, sumujemy ich kwadraty (g_r * g_r)
+        sum_rows_squared = np.bincount(flat, weights=(gradient_rows * gradient_rows).ravel(), minlength=n_unique * d_model).reshape(n_unique, d_model)
+
+        # Gradient bisu to zwykła pojedyncza liczba. a nie wektor,
+        # więc nie potrzeba nic spłaszczać, ponieważ mamy tutaj tylko n_unique, a nie n_unique * d_model
+        sum_scalar = np.bincount(inverse, weights=gradient_scalar, minlength=n_unique)
+        sum_scalar_squared = np.bincount(inverse, weights=gradient_scalar ** 2, minlength=n_unique)
+
+        return unique, sum_rows, sum_rows_squared, sum_scalar, sum_scalar_squared
 
 if __name__ == '__main__':
     pass
