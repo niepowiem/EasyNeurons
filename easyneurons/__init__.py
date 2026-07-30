@@ -7,3 +7,4 @@ from . import metrics
 from . import plugandplay
 from . import tokenization
 from . import embeddings
+from . import initializers
